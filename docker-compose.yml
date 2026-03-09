@@ -1,0 +1,146 @@
+version: '3.9'
+
+networks:
+  mediconnect-net:
+    driver: bridge
+
+volumes:
+  postgres-auth-data:
+  postgres-users-data:
+  postgres-consult-data:
+
+services:
+
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    ports:
+      - "80:80"
+      - "8090:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    networks:
+      - mediconnect-net
+
+  postgres-auth:
+    image: postgres:16-alpine
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    networks:
+      - mediconnect-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-users:
+    image: postgres:16-alpine
+    container_name: postgres-users
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: users_user
+      POSTGRES_PASSWORD: users_pass
+    volumes:
+      - postgres-users-data:/var/lib/postgresql/data
+    networks:
+      - mediconnect-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users_user -d users_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-consult:
+    image: postgres:16-alpine
+    container_name: postgres-consult
+    environment:
+      POSTGRES_DB: consult_db
+      POSTGRES_USER: consult_user
+      POSTGRES_PASSWORD: consult_pass
+    volumes:
+      - postgres-consult-data:/var/lib/postgresql/data
+    networks:
+      - mediconnect-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U consult_user -d consult_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: auth_pass
+      JWT_SECRET: mediconnect-super-secret-jwt-key-change-in-prod-min-256-bits
+      JWT_ACCESS_EXPIRY_MS: 900000
+      JWT_REFRESH_EXPIRY_MS: 604800000
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+    networks:
+      - mediconnect-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8081"
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-users:5432/users_db
+      SPRING_DATASOURCE_USERNAME: users_user
+      SPRING_DATASOURCE_PASSWORD: users_pass
+      AUTH_SERVICE_URL: http://auth-service:8081
+    depends_on:
+      postgres-users:
+        condition: service_healthy
+    networks:
+      - mediconnect-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.users.rule=PathPrefix(`/api/users`)"
+      - "traefik.http.routers.users.entrypoints=web"
+      - "traefik.http.services.users.loadbalancer.server.port=8082"
+
+  consultation-service:
+    build: ./consultation-service
+    container_name: consultation-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-consult:5432/consult_db
+      SPRING_DATASOURCE_USERNAME: consult_user
+      SPRING_DATASOURCE_PASSWORD: consult_pass
+      AUTH_SERVICE_URL: http://auth-service:8081
+      USER_SERVICE_URL: http://user-service:8082
+    depends_on:
+      postgres-consult:
+        condition: service_healthy
+    networks:
+      - mediconnect-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.consultations.rule=PathPrefix(`/api/consultations`)"
+      - "traefik.http.routers.consultations.entrypoints=web"
+      - "traefik.http.services.consultations.loadbalancer.server.port=8083"
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    networks:
+      - mediconnect-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
