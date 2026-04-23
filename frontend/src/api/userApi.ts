@@ -77,6 +77,11 @@ export const assignDoctor = async (data: AssignDoctorRequest): Promise<void> => 
   await axiosInstance.post('/api/users/assignments', data);
 };
 
+export const getDoctorPatients = async (doctorId: string): Promise<PatientResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<PatientResponse[]>>(`/api/users/doctors/${doctorId}/patients`);
+  return response.data.data;
+};
+
 export const getPatientDoctor = async (patientId: string): Promise<DoctorResponse | null> => {
   try {
     const response = await axiosInstance.get<ApiSuccess<DoctorResponse>>(`/api/users/patients/${patientId}/doctor`);

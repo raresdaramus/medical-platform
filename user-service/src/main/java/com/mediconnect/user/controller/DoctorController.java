@@ -55,6 +55,15 @@ public class DoctorController {
         return ResponseEntity.ok(ApiResponse.ok(doctorService.getSchedule(doctorId)));
     }
 
+    @GetMapping("/doctors/{doctorId}/patients")
+    public ResponseEntity<ApiResponse<List<PatientResponse>>> getDoctorPatients(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID doctorId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        return ResponseEntity.ok(ApiResponse.ok(doctorService.getDoctorPatients(doctorId)));
+    }
+
     @PostMapping("/doctors/{doctorId}/schedule")
     public ResponseEntity<ApiResponse<List<ScheduleEntryResponse>>> createSchedule(
             @RequestHeader("Authorization") String auth,

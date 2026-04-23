@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { getPatientDoctor, searchDoctors } from '../../api/userApi';
 import { getSlots, createConsultation } from '../../api/consultationApi';
@@ -8,7 +9,6 @@ import type { DoctorResponse, SlotResponse, ConsultationType } from '../../types
 type Step = 1 | 2 | 3;
 
 function formatTime(slotTime: string) {
-  // slotTime is already "HH:mm" from the backend
   return slotTime;
 }
 
@@ -18,6 +18,7 @@ function todayIso() {
 
 export default function BookConsultationPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { profileId } = useAuthStore();
 
   const [step, setStep] = useState<Step>(1);
@@ -105,7 +106,7 @@ export default function BookConsultationPage() {
     setSelectedSlot('');
     getSlots(selectedDoctorId, selectedDate)
       .then(setSlots)
-      .catch(() => setError('Failed to load available slots.'))
+      .catch(() => setError(t('booking.failedLoadSlots')))
       .finally(() => setSlotsLoading(false));
   }, [step, selectedDoctorId, selectedDate]);
 
@@ -123,7 +124,7 @@ export default function BookConsultationPage() {
       navigate('/patient/consultations');
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
-      setError(axiosError.response?.data?.error?.message ?? 'Booking failed. Please try again.');
+      setError(axiosError.response?.data?.error?.message ?? t('booking.failedBook'));
     } finally {
       setBooking(false);
     }
@@ -134,8 +135,8 @@ export default function BookConsultationPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Book a Consultation</h1>
-        <p className="text-slate-500 mt-1">Follow the steps to schedule your appointment.</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t('booking.title')}</h1>
+        <p className="text-slate-500 mt-1">{t('booking.subtitle')}</p>
       </div>
 
       {/* Step indicator */}
@@ -154,7 +155,7 @@ export default function BookConsultationPage() {
               {step > s ? '✓' : s}
             </div>
             <span className={`text-sm font-medium ${step === s ? 'text-slate-900' : 'text-slate-400'}`}>
-              {s === 1 ? 'Doctor' : s === 2 ? 'Date' : 'Time slot'}
+              {s === 1 ? t('booking.step1') : s === 2 ? t('booking.step2') : t('booking.step3')}
             </span>
             {i < 2 && <div className="flex-1 h-px bg-slate-200 w-8" />}
           </div>
@@ -169,16 +170,16 @@ export default function BookConsultationPage() {
       {step === 1 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="text-base font-semibold text-slate-900">Step 1 — Select your doctor</h2>
+            <h2 className="text-base font-semibold text-slate-900">{t('booking.stepLabel1')}</h2>
           </div>
           <div className="card-body space-y-4">
             {doctorLoading ? (
-              <p className="text-slate-400 text-sm">Loading…</p>
+              <p className="text-slate-400 text-sm">{t('common.loading')}</p>
             ) : (
               <>
                 {assignedDoctor && (
                   <div>
-                    <p className="label mb-1">Your assigned doctor</p>
+                    <p className="label mb-1">{t('booking.assignedDoctor')}</p>
                     <button
                       onClick={() => selectDoctor(assignedDoctor)}
                       className={`w-full text-left p-3 rounded-lg border transition-colors ${
@@ -196,11 +197,13 @@ export default function BookConsultationPage() {
                 )}
 
                 <div ref={searchRef} className="relative">
-                  <label className="label">{assignedDoctor ? 'Or search for another doctor' : 'Search for a doctor'}</label>
+                  <label className="label">
+                    {assignedDoctor ? t('booking.orSearchAnother') : t('booking.searchForDoctor')}
+                  </label>
                   <input
                     type="text"
                     className="input-field"
-                    placeholder="Search by name…"
+                    placeholder={t('booking.searchDoctor')}
                     value={searchQuery}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     onFocus={() => setShowDropdown(true)}
@@ -208,9 +211,9 @@ export default function BookConsultationPage() {
                   {showDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
                       {searchLoading ? (
-                        <p className="px-4 py-3 text-sm text-slate-400">Searching…</p>
+                        <p className="px-4 py-3 text-sm text-slate-400">{t('booking.searching')}</p>
                       ) : searchResults.length === 0 ? (
-                        <p className="px-4 py-3 text-sm text-slate-400">No doctors found.</p>
+                        <p className="px-4 py-3 text-sm text-slate-400">{t('booking.noDoctors')}</p>
                       ) : (
                         searchResults.map((doc) => (
                           <button
@@ -223,7 +226,9 @@ export default function BookConsultationPage() {
                             <p className="text-sm font-medium text-slate-900">
                               Dr. {doc.firstName} {doc.lastName}
                               {doc.id === assignedDoctor?.id && (
-                                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Your doctor</span>
+                                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                                  {t('booking.yourDoctor')}
+                                </span>
                               )}
                             </p>
                             <p className="text-xs text-slate-500">{doc.specialization} · {doc.clinicName}</p>
@@ -237,7 +242,7 @@ export default function BookConsultationPage() {
                 {selectedDoctor && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-sm font-medium text-green-900">
-                      ✓ Selected: Dr. {selectedDoctor.firstName} {selectedDoctor.lastName}
+                      ✓ {t('booking.selected')} Dr. {selectedDoctor.firstName} {selectedDoctor.lastName}
                     </p>
                     <p className="text-xs text-green-700">{selectedDoctor.specialization} · {selectedDoctor.clinicName}</p>
                   </div>
@@ -251,7 +256,7 @@ export default function BookConsultationPage() {
                 disabled={!selectedDoctorId}
                 onClick={() => setStep(2)}
               >
-                Next: Pick a date
+                {t('booking.nextDate')}
               </button>
             </div>
           </div>
@@ -262,11 +267,11 @@ export default function BookConsultationPage() {
       {step === 2 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="text-base font-semibold text-slate-900">Step 2 — Choose a date</h2>
+            <h2 className="text-base font-semibold text-slate-900">{t('booking.stepLabel2')}</h2>
           </div>
           <div className="card-body space-y-4">
             <div>
-              <label className="label">Date</label>
+              <label className="label">{t('booking.dateLabel')}</label>
               <input
                 type="date"
                 className="input-field"
@@ -277,25 +282,25 @@ export default function BookConsultationPage() {
             </div>
 
             <div>
-              <label className="label">Consultation type</label>
+              <label className="label">{t('booking.consultationType')}</label>
               <select
                 className="input-field"
                 value={consultationType}
                 onChange={(e) => setConsultationType(e.target.value as ConsultationType)}
               >
-                <option value="IN_PERSON">In person</option>
-                <option value="TELEMEDICINE">Telemedicine</option>
+                <option value="IN_PERSON">{t('booking.inPerson')}</option>
+                <option value="TELEMEDICINE">{t('booking.telemedicine')}</option>
               </select>
             </div>
 
             <div className="flex justify-between">
-              <button className="btn-secondary" onClick={() => setStep(1)}>Back</button>
+              <button className="btn-secondary" onClick={() => setStep(1)}>{t('common.back')}</button>
               <button
                 className="btn-primary"
                 disabled={!selectedDate}
                 onClick={() => setStep(3)}
               >
-                Next: Pick a slot
+                {t('booking.nextSlot')}
               </button>
             </div>
           </div>
@@ -307,14 +312,14 @@ export default function BookConsultationPage() {
         <div className="card">
           <div className="card-header">
             <h2 className="text-base font-semibold text-slate-900">
-              Step 3 — Available slots for {new Date(selectedDate + 'T00:00:00').toLocaleDateString()}
+              {t('booking.stepLabel3', { date: new Date(selectedDate + 'T00:00:00').toLocaleDateString() })}
             </h2>
           </div>
           <div className="card-body space-y-4">
             {slotsLoading ? (
-              <p className="text-slate-400 text-sm">Loading slots…</p>
+              <p className="text-slate-400 text-sm">{t('booking.loadingSlots')}</p>
             ) : availableSlots.length === 0 ? (
-              <p className="text-slate-500 text-sm">No available slots for this day. Try a different date.</p>
+              <p className="text-slate-500 text-sm">{t('booking.noSlots')}</p>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {availableSlots.map((slot) => (
@@ -338,18 +343,18 @@ export default function BookConsultationPage() {
 
             {selectedSlot && (
               <p className="text-sm text-slate-600">
-                Selected: <strong>{formatTime(selectedSlot)}</strong>
+                {t('booking.selected')} <strong>{formatTime(selectedSlot)}</strong>
               </p>
             )}
 
             <div className="flex justify-between">
-              <button className="btn-secondary" onClick={() => setStep(2)}>Back</button>
+              <button className="btn-secondary" onClick={() => setStep(2)}>{t('common.back')}</button>
               <button
                 className="btn-primary"
                 disabled={!selectedSlot || booking}
                 onClick={handleBook}
               >
-                {booking ? 'Booking…' : 'Confirm booking'}
+                {booking ? t('booking.booking') : t('booking.confirmBooking')}
               </button>
             </div>
           </div>

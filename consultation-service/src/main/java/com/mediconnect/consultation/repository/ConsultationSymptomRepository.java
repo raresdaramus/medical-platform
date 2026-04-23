@@ -5,4 +5,5 @@ import java.util.List;
 import java.util.UUID;
 public interface ConsultationSymptomRepository extends JpaRepository<ConsultationSymptom, UUID> {
     List<ConsultationSymptom> findByConsultationId(UUID consultationId);
+    boolean existsByConsultationIdAndSymptomId(UUID consultationId, UUID symptomId);
 }

@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { login as loginApi } from '../api/authApi';
 import { getMyPatient, getMyDoctor } from '../api/userApi';
 import { useAuthStore } from '../store/authStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { setTokens, setProfile } = useAuthStore();
 
   const [email, setEmail] = useState('');
@@ -49,7 +51,7 @@ export default function LoginPage() {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
       setError(
         axiosError.response?.data?.error?.message ??
-          'Invalid credentials. Please try again.'
+          t('auth.invalidCredentials')
       );
     } finally {
       setLoading(false);
@@ -72,7 +74,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-slate-900">MediConnect</h1>
-          <p className="text-slate-500 mt-1">Sign in to your account</p>
+          <p className="text-slate-500 mt-1">{t('auth.signInSubtitle')}</p>
         </div>
 
         {/* Card */}
@@ -86,7 +88,7 @@ export default function LoginPage() {
               )}
 
               <div>
-                <label className="label" htmlFor="email">Email address</label>
+                <label className="label" htmlFor="email">{t('auth.emailAddress')}</label>
                 <input
                   id="email"
                   type="email"
@@ -100,7 +102,7 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="label" htmlFor="password">Password</label>
+                <label className="label" htmlFor="password">{t('auth.password')}</label>
                 <input
                   id="password"
                   type="password"
@@ -114,14 +116,14 @@ export default function LoginPage() {
               </div>
 
               <button type="submit" className="btn-primary w-full" disabled={loading}>
-                {loading ? 'Signing in…' : 'Sign in'}
+                {loading ? t('auth.signingIn') : t('auth.signIn')}
               </button>
             </form>
 
             <p className="mt-4 text-center text-sm text-slate-500">
-              No account?{' '}
+              {t('auth.noAccount')}{' '}
               <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-                Register here
+                {t('auth.registerHere')}
               </Link>
             </p>
           </div>

@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: consultation-service
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/consult_db}
     username: ${SPRING_DATASOURCE_USERNAME:consult_user}

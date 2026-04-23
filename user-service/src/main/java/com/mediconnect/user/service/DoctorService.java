@@ -8,6 +8,8 @@ import com.mediconnect.user.exception.UnauthorizedException;
 import com.mediconnect.user.mapper.UserMapper;
 import com.mediconnect.user.repository.DoctorRepository;
 import com.mediconnect.user.repository.DoctorScheduleRepository;
+import com.mediconnect.user.repository.PatientDoctorAssignmentRepository;
+import com.mediconnect.user.repository.PatientRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,13 +24,19 @@ public class DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final DoctorScheduleRepository scheduleRepository;
+    private final PatientDoctorAssignmentRepository assignmentRepository;
+    private final PatientRepository patientRepository;
     private final UserMapper userMapper;
 
     public DoctorService(DoctorRepository doctorRepository,
                          DoctorScheduleRepository scheduleRepository,
+                         PatientDoctorAssignmentRepository assignmentRepository,
+                         PatientRepository patientRepository,
                          UserMapper userMapper) {
         this.doctorRepository = doctorRepository;
         this.scheduleRepository = scheduleRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.patientRepository = patientRepository;
         this.userMapper = userMapper;
     }
 
@@ -72,6 +80,15 @@ public class DoctorService {
     public List<ScheduleEntryResponse> getSchedule(UUID doctorId) {
         return scheduleRepository.findByDoctorIdAndIsActiveTrue(doctorId)
             .stream().map(userMapper::toScheduleResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PatientResponse> getDoctorPatients(UUID doctorId) {
+        return assignmentRepository.findByDoctorIdAndIsActiveTrue(doctorId).stream()
+            .map(assignment -> patientRepository.findById(assignment.getPatientId()).orElse(null))
+            .filter(p -> p != null)
+            .map(userMapper::toPatientResponse)
+            .collect(Collectors.toList());
     }
 
     public List<ScheduleEntryResponse> createSchedule(UUID doctorId, UUID accountId, List<ScheduleEntryRequest> entries) {

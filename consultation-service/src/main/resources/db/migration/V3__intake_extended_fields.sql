@@ -1,0 +1,12 @@
+ALTER TABLE patient_intake_forms ADD COLUMN temperature DECIMAL(4,1);
+ALTER TABLE patient_intake_forms ADD COLUMN blood_pressure VARCHAR(20);
+ALTER TABLE patient_intake_forms ADD COLUMN blood_glucose DECIMAL(5,1);
+ALTER TABLE patient_intake_forms ADD COLUMN body_zone VARCHAR(100);
+ALTER TABLE patient_intake_forms ADD COLUMN body_zone_symptoms TEXT;
+ALTER TABLE patient_intake_forms ADD COLUMN symptom_onset VARCHAR(50);
+ALTER TABLE patient_intake_forms ADD COLUMN pain_intensity VARCHAR(30);
+ALTER TABLE patient_intake_forms ADD COLUMN pain_type VARCHAR(50);
+ALTER TABLE patient_intake_forms ADD COLUMN had_symptoms_before BOOLEAN;
+ALTER TABLE patient_intake_forms ADD COLUMN general_symptoms TEXT;
+ALTER TABLE patient_intake_forms ADD COLUMN medications_taken_text TEXT;
+ALTER TABLE patient_intake_forms ADD COLUMN known_conditions TEXT;

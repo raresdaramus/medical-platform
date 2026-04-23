@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { getPatientMedicalRecord } from '../../api/consultationApi';
 import type { MedicalRecordResponse } from '../../types';
-
-const entryTypeLabels: Record<string, string> = {
-  INTAKE: 'Patient Intake',
-  DIAGNOSIS: 'Diagnosis',
-  PRESCRIPTION: 'Prescription',
-  REFERRAL: 'Referral',
-};
 
 const entryTypeBadge: Record<string, string> = {
   INTAKE: 'badge-yellow',
@@ -20,6 +14,14 @@ const entryTypeBadge: Record<string, string> = {
 
 export default function MedicalRecordPage() {
   const { profileId } = useAuthStore();
+  const { t } = useTranslation();
+
+  const entryTypeLabels: Record<string, string> = {
+    INTAKE: t('medicalRecord.intake'),
+    DIAGNOSIS: t('medicalRecord.diagnosis'),
+    PRESCRIPTION: t('medicalRecord.prescription'),
+    REFERRAL: t('medicalRecord.referral'),
+  };
 
   const [records, setRecords] = useState<MedicalRecordResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,19 +31,19 @@ export default function MedicalRecordPage() {
     if (!profileId) return;
     getPatientMedicalRecord(profileId)
       .then((data) => setRecords(data.sort((a, b) => b.addedAt.localeCompare(a.addedAt))))
-      .catch(() => setError('Failed to load medical record.'))
+      .catch(() => setError(t('medicalRecord.failedLoad')))
       .finally(() => setLoading(false));
   }, [profileId]);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-slate-400">Loading…</div>;
+    return <div className="flex items-center justify-center py-20 text-slate-400">{t('common.loading')}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Medical Record</h1>
-        <p className="text-slate-500 mt-1">Your complete medical history.</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t('medicalRecord.title')}</h1>
+        <p className="text-slate-500 mt-1">{t('medicalRecord.subtitle')}</p>
       </div>
 
       {error && (
@@ -50,8 +52,8 @@ export default function MedicalRecordPage() {
 
       {records.length === 0 ? (
         <div className="card card-body text-center py-12">
-          <p className="text-slate-500">Your medical record is empty.</p>
-          <p className="text-slate-400 text-sm mt-1">Records will appear here after your consultations.</p>
+          <p className="text-slate-500">{t('medicalRecord.empty')}</p>
+          <p className="text-slate-400 text-sm mt-1">{t('medicalRecord.emptySub')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -92,7 +94,7 @@ export default function MedicalRecordPage() {
 
                     {record.scheduledAt && (
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Consultation:{' '}
+                        {t('medicalRecord.consultationLabel')}{' '}
                         {new Date(record.scheduledAt).toLocaleString([], {
                           dateStyle: 'medium',
                           timeStyle: 'short',
@@ -107,7 +109,7 @@ export default function MedicalRecordPage() {
                   className="text-blue-600 hover:text-blue-700 text-sm font-medium flex-shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  View consultation →
+                  {t('medicalRecord.viewConsultation')}
                 </Link>
               </div>
             </div>

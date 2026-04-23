@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { getDoctorSchedule, updateDoctorSchedule } from '../../api/userApi';
 import type { ScheduleEntry, CreateScheduleEntry, DayOfWeek } from '../../types';
 
-const DAY_NAMES: Record<DayOfWeek, string> = {
+const DAY_KEYS: Record<DayOfWeek, string> = {
   1: 'Monday',
   2: 'Tuesday',
   3: 'Wednesday',
@@ -17,6 +18,7 @@ const DAYS: DayOfWeek[] = [1, 2, 3, 4, 5, 6, 7];
 
 export default function ManageSchedulePage() {
   const { profileId } = useAuthStore();
+  const { t } = useTranslation();
 
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function ManageSchedulePage() {
       const data = await getDoctorSchedule(profileId);
       setSchedule(data);
     } catch {
-      setError('Failed to load schedule.');
+      setError(t('schedule.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -50,7 +52,7 @@ export default function ManageSchedulePage() {
     setFormError('');
 
     if (newStart >= newEnd) {
-      setFormError('End time must be after start time.');
+      setFormError(t('schedule.endAfterStart'));
       return;
     }
 
@@ -63,7 +65,7 @@ export default function ManageSchedulePage() {
     );
 
     if (hasOverlap) {
-      setFormError('This time range overlaps with an existing entry for that day.');
+      setFormError(t('schedule.overlap'));
       return;
     }
 
@@ -102,10 +104,10 @@ export default function ManageSchedulePage() {
     try {
       const updated = await updateDoctorSchedule(profileId, createEntries);
       setSchedule(updated);
-      setSuccessMsg('Schedule saved successfully.');
+      setSuccessMsg(t('schedule.savedSuccess'));
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
-      setError(axiosError.response?.data?.error?.message ?? 'Failed to save schedule.');
+      setError(axiosError.response?.data?.error?.message ?? t('schedule.failedSave'));
     } finally {
       setSaving(false);
     }
@@ -114,14 +116,14 @@ export default function ManageSchedulePage() {
   const activeSchedule = schedule.filter((e) => e.isActive);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-slate-400">Loading schedule…</div>;
+    return <div className="flex items-center justify-center py-20 text-slate-400">{t('schedule.loading')}</div>;
   }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Manage Schedule</h1>
-        <p className="text-slate-500 mt-1">Set your weekly availability for consultations.</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t('schedule.title')}</h1>
+        <p className="text-slate-500 mt-1">{t('schedule.subtitle')}</p>
       </div>
 
       {error && (
@@ -134,7 +136,7 @@ export default function ManageSchedulePage() {
       {/* Add entry form */}
       <div className="card">
         <div className="card-header">
-          <h2 className="font-semibold text-slate-900">Add schedule entry</h2>
+          <h2 className="font-semibold text-slate-900">{t('schedule.addEntry')}</h2>
         </div>
         <div className="card-body">
           <form onSubmit={handleAdd} className="space-y-4">
@@ -144,19 +146,19 @@ export default function ManageSchedulePage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <label className="label">Day</label>
+                <label className="label">{t('schedule.day')}</label>
                 <select
                   className="input-field"
                   value={newDay}
                   onChange={(e) => setNewDay(parseInt(e.target.value) as DayOfWeek)}
                 >
                   {DAYS.map((d) => (
-                    <option key={d} value={d}>{DAY_NAMES[d]}</option>
+                    <option key={d} value={d}>{DAY_KEYS[d]}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="label">Start time</label>
+                <label className="label">{t('schedule.startTime')}</label>
                 <input
                   type="time"
                   className="input-field"
@@ -166,7 +168,7 @@ export default function ManageSchedulePage() {
                 />
               </div>
               <div>
-                <label className="label">End time</label>
+                <label className="label">{t('schedule.endTime')}</label>
                 <input
                   type="time"
                   className="input-field"
@@ -176,7 +178,7 @@ export default function ManageSchedulePage() {
                 />
               </div>
               <div>
-                <label className="label">Slot (min)</label>
+                <label className="label">{t('schedule.slotMin')}</label>
                 <select
                   className="input-field"
                   value={newSlotDuration}
@@ -193,7 +195,7 @@ export default function ManageSchedulePage() {
 
             <div className="flex justify-end">
               <button type="submit" className="btn-secondary">
-                Add to schedule
+                {t('schedule.addToSchedule')}
               </button>
             </div>
           </form>
@@ -210,13 +212,15 @@ export default function ManageSchedulePage() {
           return (
             <div key={day} className="card">
               <div className="card-header flex items-center justify-between">
-                <h3 className="font-medium text-slate-800">{DAY_NAMES[day]}</h3>
-                <span className="text-xs text-slate-400">{dayEntries.length} slot{dayEntries.length !== 1 ? 's' : ''}</span>
+                <h3 className="font-medium text-slate-800">{DAY_KEYS[day]}</h3>
+                <span className="text-xs text-slate-400">
+                  {dayEntries.length} {dayEntries.length !== 1 ? t('schedule.minSlots') : t('schedule.slotMin')}
+                </span>
               </div>
 
               {dayEntries.length === 0 ? (
                 <div className="card-body py-3">
-                  <p className="text-slate-400 text-sm">No schedule entries for this day.</p>
+                  <p className="text-slate-400 text-sm">{t('schedule.noEntries')}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
@@ -226,15 +230,14 @@ export default function ManageSchedulePage() {
                         <span className="font-medium text-slate-800">
                           {entry.startTime} – {entry.endTime}
                         </span>
-                        <span className="ml-3 text-slate-500">{entry.slotDurationMinutes} min slots</span>
-                        {/* Compute approximate slot count */}
+                        <span className="ml-3 text-slate-500">{entry.slotDurationMinutes} {t('schedule.minSlots')}</span>
                         <span className="ml-2 text-slate-400 text-xs">
                           (~{(() => {
                             const [sh, sm] = entry.startTime.split(':').map(Number);
                             const [eh, em] = entry.endTime.split(':').map(Number);
                             const totalMin = (eh * 60 + em) - (sh * 60 + sm);
                             return Math.floor(totalMin / entry.slotDurationMinutes);
-                          })()} appointments)
+                          })()} {t('schedule.appointments')})
                         </span>
                       </div>
                       <button
@@ -242,7 +245,7 @@ export default function ManageSchedulePage() {
                         className="text-red-500 hover:text-red-700 text-sm font-medium"
                         onClick={() => handleRemove(entry.id)}
                       >
-                        Remove
+                        {t('schedule.remove')}
                       </button>
                     </div>
                   ))}
@@ -256,10 +259,10 @@ export default function ManageSchedulePage() {
       {/* Save button */}
       <div className="flex justify-end gap-3 pb-8">
         <button className="btn-secondary" onClick={load} disabled={saving}>
-          Reset
+          {t('schedule.reset')}
         </button>
         <button className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save schedule'}
+          {saving ? t('schedule.saving') : t('schedule.save')}
         </button>
       </div>
     </div>

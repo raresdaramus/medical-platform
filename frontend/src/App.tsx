@@ -1,10 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
+import { refreshToken as apiRefresh } from './api/authApi';
 import type { Role } from './types';
 
 import Layout from './components/Layout';
 
 // Pages
+import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import PatientDashboard from './pages/patient/PatientDashboard';
@@ -17,6 +20,8 @@ import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import DoctorConsultationsPage from './pages/doctor/DoctorConsultationsPage';
 import ConsultationWorkspacePage from './pages/doctor/ConsultationWorkspacePage';
 import ManageSchedulePage from './pages/doctor/ManageSchedulePage';
+import DoctorPatientsPage from './pages/doctor/DoctorPatientsPage';
+import DoctorPatientProfilePage from './pages/doctor/DoctorPatientProfilePage';
 
 // ─── Private Route ────────────────────────────────────────────────────────────
 
@@ -44,10 +49,31 @@ function PrivateRoute({ children, requiredRole }: PrivateRouteProps) {
 function RootRedirect() {
   const { accessToken, role } = useAuthStore();
 
-  if (!accessToken) return <Navigate to="/login" replace />;
+  if (!accessToken) return <Navigate to="/home" replace />;
   if (role === 'PATIENT') return <Navigate to="/patient/dashboard" replace />;
   if (role === 'DOCTOR') return <Navigate to="/doctor/dashboard" replace />;
   return <Navigate to="/login" replace />;
+}
+
+// ─── Auth Initializer ─────────────────────────────────────────────────────────
+
+function AuthInitializer({ children }: { children: React.ReactNode }) {
+  const { refreshToken: storedRefresh, setAccessToken, logout } = useAuthStore();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!storedRefresh) {
+      setReady(true);
+      return;
+    }
+    apiRefresh(storedRefresh)
+      .then((res) => setAccessToken(res.accessToken))
+      .catch(() => logout())
+      .finally(() => setReady(true));
+  }, []);
+
+  if (!ready) return null;
+  return <>{children}</>;
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
@@ -55,8 +81,10 @@ function RootRedirect() {
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthInitializer>
       <Routes>
         {/* Public routes */}
+        <Route path="/home" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
@@ -139,6 +167,22 @@ export default function App() {
           }
         />
         <Route
+          path="/doctor/patients"
+          element={
+            <PrivateRoute requiredRole="DOCTOR">
+              <DoctorPatientsPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/doctor/patients/:patientId"
+          element={
+            <PrivateRoute requiredRole="DOCTOR">
+              <DoctorPatientProfilePage />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/doctor/schedule"
           element={
             <PrivateRoute requiredRole="DOCTOR">
@@ -150,6 +194,7 @@ export default function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </AuthInitializer>
     </BrowserRouter>
   );
 }

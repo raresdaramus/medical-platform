@@ -49,6 +49,69 @@ public class UserClient {
     }
 
     @Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))
+    public PatientInfoDto getPatientByAccountId(UUID accountId) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restClient.get()
+                    .uri("/api/users/internal/patients/by-account/" + accountId)
+                    .retrieve()
+                    .body(Map.class);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) response.get("data");
+            return new PatientInfoDto(
+                UUID.fromString((String) data.get("id")),
+                UUID.fromString((String) data.get("accountId")),
+                (String) data.get("firstName"),
+                (String) data.get("lastName")
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch patient by account: " + e.getMessage(), e);
+        }
+    }
+
+    @Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))
+    public PatientInfoDto getDoctorInfo(UUID doctorId) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restClient.get()
+                    .uri("/api/users/internal/doctors/" + doctorId)
+                    .retrieve()
+                    .body(Map.class);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) response.get("data");
+            return new PatientInfoDto(
+                UUID.fromString((String) data.get("id")),
+                UUID.fromString((String) data.get("accountId")),
+                (String) data.get("firstName"),
+                (String) data.get("lastName")
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch doctor info: " + e.getMessage(), e);
+        }
+    }
+
+    @Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))
+    public PatientInfoDto getDoctorByAccountId(UUID accountId) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restClient.get()
+                    .uri("/api/users/internal/doctors/by-account/" + accountId)
+                    .retrieve()
+                    .body(Map.class);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) response.get("data");
+            return new PatientInfoDto(
+                UUID.fromString((String) data.get("id")),
+                UUID.fromString((String) data.get("accountId")),
+                (String) data.get("firstName"),
+                (String) data.get("lastName")
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch doctor by account: " + e.getMessage(), e);
+        }
+    }
+
+    @Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))
     public List<DoctorScheduleDto> getDoctorSchedule(UUID doctorId) {
         try {
             @SuppressWarnings("unchecked")

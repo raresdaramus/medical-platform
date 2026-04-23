@@ -1,92 +1,42 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
-import { getPatientMedicalRecord } from '../../api/consultationApi';
-import type { MedicalRecordResponse, ConsultationStatus } from '../../types';
+import { getPatientConsultations } from '../../api/consultationApi';
+import type { ConsultationResponse, ConsultationStatus } from '../../types';
 
-function statusBadge(status?: ConsultationStatus) {
-  switch (status) {
-    case 'PENDING':
-      return <span className="badge-yellow">Pending</span>;
-    case 'CONFIRMED':
-      return <span className="badge-blue">Confirmed</span>;
-    case 'IN_PROGRESS':
-      return <span className="badge-green">In Progress</span>;
-    case 'COMPLETED':
-      return <span className="badge-slate">Completed</span>;
-    case 'CANCELLED':
-      return <span className="badge-red">Cancelled</span>;
-    default:
-      return <span className="badge-slate">Unknown</span>;
-  }
-}
-
-function entryTypeBadge(type: MedicalRecordResponse['entryType']) {
-  const colors: Record<string, string> = {
-    INTAKE: 'badge-yellow',
-    DIAGNOSIS: 'badge-blue',
-    PRESCRIPTION: 'badge-green',
-    REFERRAL: 'badge-slate',
+function statusBadge(status: ConsultationStatus, t: (k: string) => string) {
+  const map: Record<ConsultationStatus, string> = {
+    PENDING: 'badge-yellow',
+    CONFIRMED: 'badge-blue',
+    IN_PROGRESS: 'badge-green',
+    COMPLETED: 'badge-slate',
+    CANCELLED: 'badge-red',
   };
-  return <span className={colors[type] ?? 'badge-slate'}>{type}</span>;
+  return <span className={map[status]}>{t('status.' + status)}</span>;
 }
 
 export default function PatientConsultationsPage() {
-  const { profileId } = useAuthStore();
+  const { accountId } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
-  const [records, setRecords] = useState<MedicalRecordResponse[]>([]);
+  const [consultations, setConsultations] = useState<ConsultationResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!profileId) return;
-    getPatientMedicalRecord(profileId)
-      .then(setRecords)
-      .catch(() => setError('Failed to load consultations.'))
+    if (!accountId) return;
+    getPatientConsultations(accountId)
+      .then((data) => setConsultations(data.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt))))
+      .catch(() => setError(t('consultations.failedLoad')))
       .finally(() => setLoading(false));
-  }, [profileId]);
-
-  // Group records by consultationId to show one row per consultation
-  const consultationMap = new Map<
-    string,
-    {
-      consultationId: string;
-      entries: MedicalRecordResponse[];
-      latestAt: string;
-      scheduledAt?: string;
-      status?: ConsultationStatus;
-      doctorName?: string;
-    }
-  >();
-
-  for (const r of records) {
-    if (!consultationMap.has(r.consultationId)) {
-      consultationMap.set(r.consultationId, {
-        consultationId: r.consultationId,
-        entries: [],
-        latestAt: r.addedAt,
-        scheduledAt: r.scheduledAt,
-        status: r.consultationStatus,
-        doctorName: r.doctorName,
-      });
-    }
-    const entry = consultationMap.get(r.consultationId)!;
-    entry.entries.push(r);
-    if (r.addedAt > entry.latestAt) entry.latestAt = r.addedAt;
-    if (r.scheduledAt) entry.scheduledAt = r.scheduledAt;
-    if (r.consultationStatus) entry.status = r.consultationStatus;
-    if (r.doctorName) entry.doctorName = r.doctorName;
-  }
-
-  const consultations = Array.from(consultationMap.values()).sort((a, b) =>
-    b.latestAt.localeCompare(a.latestAt)
-  );
+  }, [accountId]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="text-slate-400">Loading consultations…</div>
+        <div className="text-slate-400">{t('common.loading')}</div>
       </div>
     );
   }
@@ -95,14 +45,14 @@ export default function PatientConsultationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">My Consultations</h1>
-          <p className="text-slate-500 mt-1">View your consultation history and medical entries.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('consultations.myConsultations')}</h1>
+          <p className="text-slate-500 mt-1">{t('consultations.viewHistory')}</p>
         </div>
         <button
           className="btn-primary"
           onClick={() => navigate('/patient/book')}
         >
-          Book new
+          {t('consultations.bookNew')}
         </button>
       </div>
 
@@ -112,12 +62,12 @@ export default function PatientConsultationsPage() {
 
       {consultations.length === 0 ? (
         <div className="card card-body text-center py-12">
-          <p className="text-slate-500">No consultations yet.</p>
+          <p className="text-slate-500">{t('consultations.noneYet')}</p>
           <button
             className="btn-primary mt-4"
             onClick={() => navigate('/patient/book')}
           >
-            Book your first consultation
+            {t('consultations.bookFirst')}
           </button>
         </div>
       ) : (
@@ -125,41 +75,35 @@ export default function PatientConsultationsPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Scheduled</th>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Doctor</th>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Entries</th>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Status</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.scheduled')}</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.doctor')}</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.type')}</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.status')}</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {consultations.map((c) => (
                 <tr
-                  key={c.consultationId}
+                  key={c.id}
                   className="hover:bg-slate-50 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/patient/consultations/${c.consultationId}`)}
+                  onClick={() => navigate(`/patient/consultations/${c.id}`)}
                 >
                   <td className="px-6 py-4 text-slate-700">
-                    {c.scheduledAt
-                      ? new Date(c.scheduledAt).toLocaleString([], {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        })
-                      : new Date(c.latestAt).toLocaleDateString()}
+                    {new Date(c.scheduledAt).toLocaleString([], {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
                   </td>
                   <td className="px-6 py-4 text-slate-700">
                     {c.doctorName ? `Dr. ${c.doctorName}` : '—'}
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {[...new Set(c.entries.map((e) => e.entryType))].map((t) => (
-                        <span key={t}>{entryTypeBadge(t)}</span>
-                      ))}
-                    </div>
+                  <td className="px-6 py-4 text-slate-600 capitalize">
+                    {c.consultationType.replace('_', ' ').toLowerCase()}
                   </td>
-                  <td className="px-6 py-4">{statusBadge(c.status)}</td>
+                  <td className="px-6 py-4">{statusBadge(c.status, t)}</td>
                   <td className="px-6 py-4">
-                    <span className="text-blue-600 text-xs font-medium">View →</span>
+                    <span className="text-blue-600 text-xs font-medium">{t('common.view')}</span>
                   </td>
                 </tr>
               ))}

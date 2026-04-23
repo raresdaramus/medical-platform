@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { getDoctor } from '../../api/userApi';
-import { getDoctorPendingConsultations, confirmConsultation, cancelConsultation } from '../../api/consultationApi';
+import { getDoctorAllConsultations, confirmConsultation, cancelConsultation } from '../../api/consultationApi';
 import type { ConsultationResponse, DoctorResponse } from '../../types';
+import DoctorChartsSection from './DoctorChartsSection';
 
 export default function DoctorDashboard() {
   const { profileId } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null);
   const [consultations, setConsultations] = useState<ConsultationResponse[]>([]);
@@ -20,12 +23,12 @@ export default function DoctorDashboard() {
     try {
       const [d, c] = await Promise.allSettled([
         getDoctor(profileId),
-        getDoctorPendingConsultations(profileId),
+        getDoctorAllConsultations(profileId),
       ]);
       if (d.status === 'fulfilled') setDoctor(d.value);
       if (c.status === 'fulfilled') setConsultations(c.value);
     } catch {
-      setError('Failed to load dashboard data.');
+      setError(t('doctorDashboard.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -39,20 +42,20 @@ export default function DoctorDashboard() {
       await confirmConsultation(id);
       await load();
     } catch {
-      setError('Failed to confirm consultation.');
+      setError(t('doctorDashboard.failedConfirm'));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm('Are you sure you want to cancel this consultation?')) return;
+    if (!confirm(t('doctorDashboard.cancelConfirm'))) return;
     setActionLoading(id + '-cancel');
     try {
       await cancelConsultation(id);
       await load();
     } catch {
-      setError('Failed to cancel consultation.');
+      setError(t('doctorDashboard.failedCancel'));
     } finally {
       setActionLoading(null);
     }
@@ -62,7 +65,7 @@ export default function DoctorDashboard() {
   const confirmed = consultations.filter((c) => c.status === 'CONFIRMED' || c.status === 'IN_PROGRESS');
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-slate-400">Loading dashboard…</div>;
+    return <div className="flex items-center justify-center py-20 text-slate-400">{t('common.loading')}</div>;
   }
 
   return (
@@ -70,14 +73,14 @@ export default function DoctorDashboard() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            {doctor ? `Welcome, Dr. ${doctor.firstName} ${doctor.lastName}!` : 'Welcome!'}
+            {doctor ? t('doctorDashboard.welcome', { name: `${doctor.firstName} ${doctor.lastName}` }) : t('doctorDashboard.welcomeGeneric')}
           </h1>
           <p className="text-slate-500 mt-1">
             {doctor && `${doctor.specialization} · ${doctor.clinicName}`}
           </p>
         </div>
         <button className="btn-secondary" onClick={() => navigate('/doctor/schedule')}>
-          Manage Schedule
+          {t('doctorDashboard.manageSchedule')}
         </button>
       </div>
 
@@ -88,25 +91,28 @@ export default function DoctorDashboard() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card card-body">
-          <div className="text-sm font-medium text-slate-500">Pending requests</div>
+          <div className="text-sm font-medium text-slate-500">{t('doctorDashboard.pendingRequests')}</div>
           <div className="text-3xl font-bold text-yellow-600 mt-1">{pending.length}</div>
         </div>
         <div className="card card-body">
-          <div className="text-sm font-medium text-slate-500">Confirmed / In progress</div>
+          <div className="text-sm font-medium text-slate-500">{t('doctorDashboard.confirmedInProgress')}</div>
           <div className="text-3xl font-bold text-blue-600 mt-1">{confirmed.length}</div>
         </div>
         <div className="card card-body">
-          <div className="text-sm font-medium text-slate-500">Total active</div>
+          <div className="text-sm font-medium text-slate-500">{t('doctorDashboard.totalActive')}</div>
           <div className="text-3xl font-bold text-slate-900 mt-1">{consultations.length}</div>
         </div>
       </div>
+
+      {/* Charts */}
+      <DoctorChartsSection consultations={consultations} />
 
       {/* Pending consultations */}
       {pending.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="font-semibold text-slate-900">Pending consultation requests</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Review and respond to incoming requests.</p>
+            <h2 className="font-semibold text-slate-900">{t('doctorDashboard.pendingTitle')}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{t('doctorDashboard.pendingSubtitle')}</p>
           </div>
           <div className="divide-y divide-slate-100">
             {pending.map((c) => (
@@ -130,14 +136,14 @@ export default function DoctorDashboard() {
                     disabled={actionLoading === c.id + '-confirm'}
                     onClick={() => handleConfirm(c.id)}
                   >
-                    {actionLoading === c.id + '-confirm' ? '…' : 'Confirm'}
+                    {actionLoading === c.id + '-confirm' ? '…' : t('doctorDashboard.confirm')}
                   </button>
                   <button
                     className="btn-danger text-xs py-1.5 px-3"
                     disabled={actionLoading === c.id + '-cancel'}
                     onClick={() => handleCancel(c.id)}
                   >
-                    {actionLoading === c.id + '-cancel' ? '…' : 'Cancel'}
+                    {actionLoading === c.id + '-cancel' ? '…' : t('doctorDashboard.cancel')}
                   </button>
                 </div>
               </div>
@@ -150,7 +156,7 @@ export default function DoctorDashboard() {
       {confirmed.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="font-semibold text-slate-900">Upcoming & active consultations</h2>
+            <h2 className="font-semibold text-slate-900">{t('doctorDashboard.upcomingTitle')}</h2>
           </div>
           <div className="divide-y divide-slate-100">
             {confirmed.map((c) => (
@@ -171,9 +177,9 @@ export default function DoctorDashboard() {
                   <span
                     className={c.status === 'IN_PROGRESS' ? 'badge-green' : 'badge-blue'}
                   >
-                    {c.status === 'IN_PROGRESS' ? 'In progress' : 'Confirmed'}
+                    {c.status === 'IN_PROGRESS' ? t('doctorDashboard.inProgress') : t('status.CONFIRMED')}
                   </span>
-                  <span className="text-blue-600 text-xs font-medium">Open →</span>
+                  <span className="text-blue-600 text-xs font-medium">{t('common.open')}</span>
                 </div>
               </div>
             ))}
@@ -183,7 +189,7 @@ export default function DoctorDashboard() {
 
       {consultations.length === 0 && (
         <div className="card card-body text-center py-12">
-          <p className="text-slate-500">No consultations at the moment.</p>
+          <p className="text-slate-500">{t('doctorDashboard.noConsultations')}</p>
         </div>
       )}
     </div>

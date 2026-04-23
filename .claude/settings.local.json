@@ -5,7 +5,9 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(java:*)",
+      "Bash(find D:\\\\Facultate\\\\LICENTA\\\\medical-platform\\\\frontend\\\\src:*)"
     ]
   }
 }

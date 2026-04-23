@@ -32,6 +32,15 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.ok(consultationService.getPendingConsultations(doctorId)));
     }
 
+    @GetMapping("/doctor/{doctorId}/all")
+    public ResponseEntity<ApiResponse<List<ConsultationResponse>>> getAllDoctorConsultations(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID doctorId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        return ResponseEntity.ok(ApiResponse.ok(consultationService.getAllDoctorConsultations(doctorId)));
+    }
+
     @PutMapping("/{consultationId}/confirm")
     public ResponseEntity<ApiResponse<ConsultationResponse>> confirm(
             @RequestHeader("Authorization") String auth,
@@ -115,6 +124,24 @@ public class ConsultationController {
         ValidateTokenResponse token = authClient.validateToken(auth);
         if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
         return ResponseEntity.ok(ApiResponse.ok(consultationService.completeConsultation(consultationId, token.accountId(), request)));
+    }
+
+    @GetMapping("/doctor/{doctorId}/patient/{patientId}")
+    public ResponseEntity<ApiResponse<List<ConsultationResponse>>> getDoctorPatientConsultations(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID doctorId,
+            @PathVariable UUID patientId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        return ResponseEntity.ok(ApiResponse.ok(consultationService.getDoctorPatientConsultations(doctorId, patientId)));
+    }
+
+    @GetMapping("/patient/{patientId}")
+    public ResponseEntity<ApiResponse<List<ConsultationResponse>>> getPatientConsultations(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID patientId) {
+        authClient.validateToken(auth);
+        return ResponseEntity.ok(ApiResponse.ok(consultationService.getPatientConsultations(patientId)));
     }
 
     @GetMapping("/patients/{patientId}/record")

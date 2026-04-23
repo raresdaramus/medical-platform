@@ -1,16 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { getPatientPermissions, createPermission, deletePermission } from '../../api/userApi';
 import type { PermissionResponse, PermissionType } from '../../types';
 
-const permissionTypeLabels: Record<PermissionType, string> = {
-  VIEW_RECORDS: 'View Records',
-  EDIT_RECORDS: 'Edit Records',
-  FULL_ACCESS: 'Full Access',
-};
-
 export default function DataPermissionsPage() {
   const { profileId } = useAuthStore();
+  const { t } = useTranslation();
 
   const [permissions, setPermissions] = useState<PermissionResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,13 +19,19 @@ export default function DataPermissionsPage() {
   const [granting, setGranting] = useState(false);
   const [formError, setFormError] = useState('');
 
+  const permissionTypeLabels: Record<PermissionType, string> = {
+    VIEW_RECORDS: t('permissions.viewRecords'),
+    EDIT_RECORDS: t('permissions.editRecords'),
+    FULL_ACCESS: t('permissions.fullAccess'),
+  };
+
   const loadPermissions = async () => {
     if (!profileId) return;
     try {
       const data = await getPatientPermissions(profileId);
       setPermissions(data);
     } catch {
-      setError('Failed to load permissions.');
+      setError(t('permissions.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -39,7 +41,7 @@ export default function DataPermissionsPage() {
 
   const handleGrant = async (e: FormEvent) => {
     e.preventDefault();
-    if (!profileId || !granteeId.trim()) { setFormError('Doctor ID is required.'); return; }
+    if (!profileId || !granteeId.trim()) { setFormError(t('permissions.doctorIdRequired')); return; }
     setGranting(true);
     setFormError('');
 
@@ -55,7 +57,7 @@ export default function DataPermissionsPage() {
       await loadPermissions();
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
-      setFormError(axiosError.response?.data?.error?.message ?? 'Failed to grant permission.');
+      setFormError(axiosError.response?.data?.error?.message ?? t('permissions.failedGrant'));
     } finally {
       setGranting(false);
     }
@@ -63,24 +65,24 @@ export default function DataPermissionsPage() {
 
   const handleRevoke = async (permissionId: string) => {
     if (!profileId) return;
-    if (!confirm('Are you sure you want to revoke this permission?')) return;
+    if (!confirm(t('permissions.revokeConfirm'))) return;
     try {
       await deletePermission(profileId, permissionId);
       setPermissions((prev) => prev.filter((p) => p.id !== permissionId));
     } catch {
-      setError('Failed to revoke permission.');
+      setError(t('permissions.failedRevoke'));
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-slate-400">Loading…</div>;
+    return <div className="flex items-center justify-center py-20 text-slate-400">{t('common.loading')}</div>;
   }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Data Permissions</h1>
-        <p className="text-slate-500 mt-1">Control who can access your medical data.</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t('permissions.title')}</h1>
+        <p className="text-slate-500 mt-1">{t('permissions.subtitle')}</p>
       </div>
 
       {error && (
@@ -90,7 +92,7 @@ export default function DataPermissionsPage() {
       {/* Grant form */}
       <div className="card">
         <div className="card-header">
-          <h2 className="font-semibold text-slate-900">Grant access to a doctor</h2>
+          <h2 className="font-semibold text-slate-900">{t('permissions.grantAccess')}</h2>
         </div>
         <div className="card-body">
           <form onSubmit={handleGrant} className="space-y-4">
@@ -99,7 +101,7 @@ export default function DataPermissionsPage() {
             )}
 
             <div>
-              <label className="label">Doctor ID (UUID)</label>
+              <label className="label">{t('permissions.doctorId')}</label>
               <input
                 type="text"
                 className="input-field"
@@ -112,19 +114,19 @@ export default function DataPermissionsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">Permission level</label>
+                <label className="label">{t('permissions.permissionLevel')}</label>
                 <select
                   className="input-field"
                   value={permissionType}
                   onChange={(e) => setPermissionType(e.target.value as PermissionType)}
                 >
-                  <option value="VIEW_RECORDS">View Records</option>
-                  <option value="EDIT_RECORDS">Edit Records</option>
-                  <option value="FULL_ACCESS">Full Access</option>
+                  <option value="VIEW_RECORDS">{t('permissions.viewRecords')}</option>
+                  <option value="EDIT_RECORDS">{t('permissions.editRecords')}</option>
+                  <option value="FULL_ACCESS">{t('permissions.fullAccess')}</option>
                 </select>
               </div>
               <div>
-                <label className="label">Expires at (optional)</label>
+                <label className="label">{t('permissions.expiresAt')}</label>
                 <input
                   type="date"
                   className="input-field"
@@ -137,7 +139,7 @@ export default function DataPermissionsPage() {
 
             <div className="flex justify-end">
               <button type="submit" className="btn-primary" disabled={granting}>
-                {granting ? 'Granting…' : 'Grant access'}
+                {granting ? t('permissions.granting') : t('permissions.grant')}
               </button>
             </div>
           </form>
@@ -147,12 +149,12 @@ export default function DataPermissionsPage() {
       {/* Current permissions */}
       <div className="card">
         <div className="card-header">
-          <h2 className="font-semibold text-slate-900">Active permissions</h2>
+          <h2 className="font-semibold text-slate-900">{t('permissions.activePermissions')}</h2>
         </div>
 
         {permissions.length === 0 ? (
           <div className="card-body text-center py-8">
-            <p className="text-slate-500 text-sm">No permissions granted yet.</p>
+            <p className="text-slate-500 text-sm">{t('permissions.none')}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -169,10 +171,10 @@ export default function DataPermissionsPage() {
                     </span>
                     {p.expiresAt ? (
                       <span className="text-xs text-slate-500">
-                        Expires {new Date(p.expiresAt).toLocaleDateString()}
+                        {t('permissions.expires')} {new Date(p.expiresAt).toLocaleDateString()}
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-400">No expiry</span>
+                      <span className="text-xs text-slate-400">{t('permissions.noExpiry')}</span>
                     )}
                   </div>
                 </div>
@@ -180,7 +182,7 @@ export default function DataPermissionsPage() {
                   className="btn-danger flex-shrink-0 text-xs py-1.5 px-3"
                   onClick={() => handleRevoke(p.id)}
                 >
-                  Revoke
+                  {t('permissions.revoke')}
                 </button>
               </div>
             ))}

@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { register as registerApi, login as loginApi } from '../api/authApi';
 import { createPatient, createDoctor } from '../api/userApi';
 import { useAuthStore } from '../store/authStore';
@@ -47,6 +48,7 @@ const defaultDoctor: DoctorFields = {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { setTokens, setProfile } = useAuthStore();
 
   const [email, setEmail] = useState('');
@@ -72,7 +74,7 @@ export default function RegisterPage() {
     setError('');
 
     if (!gdprData || !gdprDoctor) {
-      setError('You must accept both GDPR consents to continue.');
+      setError(t('auth.mustAcceptGdpr'));
       return;
     }
 
@@ -113,7 +115,7 @@ export default function RegisterPage() {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
       setError(
         axiosError.response?.data?.error?.message ??
-          'Registration failed. Please check your details and try again.'
+          t('auth.registrationFailed')
       );
     } finally {
       setLoading(false);
@@ -135,8 +137,8 @@ export default function RegisterPage() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
-          <p className="text-slate-500 mt-1">Join MediConnect today</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('auth.createAccount')}</h1>
+          <p className="text-slate-500 mt-1">{t('auth.joinToday')}</p>
         </div>
 
         <div className="card">
@@ -150,10 +152,10 @@ export default function RegisterPage() {
 
               {/* Account fields */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Account</h3>
+                <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">{t('auth.account')}</h3>
 
                 <div>
-                  <label className="label" htmlFor="email">Email address</label>
+                  <label className="label" htmlFor="email">{t('auth.emailAddress')}</label>
                   <input
                     id="email"
                     type="email"
@@ -166,7 +168,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label className="label" htmlFor="password">Password</label>
+                  <label className="label" htmlFor="password">{t('auth.password')}</label>
                   <input
                     id="password"
                     type="password"
@@ -174,21 +176,21 @@ export default function RegisterPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    placeholder="At least 8 characters"
+                    placeholder={t('auth.passwordMinLength')}
                     minLength={8}
                   />
                 </div>
 
                 <div>
-                  <label className="label" htmlFor="role">I am a</label>
+                  <label className="label" htmlFor="role">{t('auth.iAm')}</label>
                   <select
                     id="role"
                     className="input-field"
                     value={role}
                     onChange={(e) => setRole(e.target.value as Role)}
                   >
-                    <option value="PATIENT">Patient</option>
-                    <option value="DOCTOR">Doctor</option>
+                    <option value="PATIENT">{t('auth.patient')}</option>
+                    <option value="DOCTOR">{t('auth.doctor')}</option>
                   </select>
                 </div>
               </div>
@@ -196,14 +198,14 @@ export default function RegisterPage() {
               {/* Profile fields */}
               <div className="space-y-4 pt-2 border-t border-slate-100">
                 <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
-                  {role === 'PATIENT' ? 'Patient Profile' : 'Doctor Profile'}
+                  {role === 'PATIENT' ? t('auth.patientProfile') : t('auth.doctorProfile')}
                 </h3>
 
                 {role === 'PATIENT' ? (
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="label">First name</label>
+                        <label className="label">{t('auth.firstName')}</label>
                         <input
                           name="firstName"
                           type="text"
@@ -215,7 +217,7 @@ export default function RegisterPage() {
                         />
                       </div>
                       <div>
-                        <label className="label">Last name</label>
+                        <label className="label">{t('auth.lastName')}</label>
                         <input
                           name="lastName"
                           type="text"
@@ -229,7 +231,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div>
-                      <label className="label">CNP (Personal Numeric Code)</label>
+                      <label className="label">{t('auth.cnp')}</label>
                       <input
                         name="cnp"
                         type="text"
@@ -244,7 +246,7 @@ export default function RegisterPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="label">Date of birth</label>
+                        <label className="label">{t('auth.dateOfBirth')}</label>
                         <input
                           name="dateOfBirth"
                           type="date"
@@ -255,23 +257,23 @@ export default function RegisterPage() {
                         />
                       </div>
                       <div>
-                        <label className="label">Gender</label>
+                        <label className="label">{t('auth.gender')}</label>
                         <select
                           name="gender"
                           className="input-field"
                           value={patientFields.gender}
                           onChange={updatePatient}
                         >
-                          <option value="MALE">Male</option>
-                          <option value="FEMALE">Female</option>
-                          <option value="OTHER">Other</option>
+                          <option value="MALE">{t('auth.male')}</option>
+                          <option value="FEMALE">{t('auth.female')}</option>
+                          <option value="OTHER">{t('auth.other')}</option>
                         </select>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="label">Phone</label>
+                        <label className="label">{t('auth.phone')}</label>
                         <input
                           name="phone"
                           type="tel"
@@ -283,7 +285,7 @@ export default function RegisterPage() {
                         />
                       </div>
                       <div>
-                        <label className="label">Blood type</label>
+                        <label className="label">{t('auth.bloodType')}</label>
                         <select
                           name="bloodType"
                           className="input-field"
@@ -300,7 +302,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div>
-                      <label className="label">Address</label>
+                      <label className="label">{t('auth.address')}</label>
                       <input
                         name="address"
                         type="text"
@@ -316,7 +318,7 @@ export default function RegisterPage() {
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="label">First name</label>
+                        <label className="label">{t('auth.firstName')}</label>
                         <input
                           name="firstName"
                           type="text"
@@ -328,7 +330,7 @@ export default function RegisterPage() {
                         />
                       </div>
                       <div>
-                        <label className="label">Last name</label>
+                        <label className="label">{t('auth.lastName')}</label>
                         <input
                           name="lastName"
                           type="text"
@@ -342,7 +344,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div>
-                      <label className="label">License number</label>
+                      <label className="label">{t('auth.licenseNumber')}</label>
                       <input
                         name="licenseNumber"
                         type="text"
@@ -355,7 +357,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div>
-                      <label className="label">Specialization</label>
+                      <label className="label">{t('auth.specialization')}</label>
                       <input
                         name="specialization"
                         type="text"
@@ -368,7 +370,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div>
-                      <label className="label">Clinic / Hospital</label>
+                      <label className="label">{t('auth.clinicHospital')}</label>
                       <input
                         name="clinicName"
                         type="text"
@@ -381,7 +383,7 @@ export default function RegisterPage() {
                     </div>
 
                     <div>
-                      <label className="label">Phone</label>
+                      <label className="label">{t('auth.phone')}</label>
                       <input
                         name="phone"
                         type="tel"
@@ -398,7 +400,7 @@ export default function RegisterPage() {
 
               {/* GDPR */}
               <div className="space-y-3 pt-2 border-t border-slate-100">
-                <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">GDPR Consent</h3>
+                <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">{t('auth.gdprConsent')}</h3>
 
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
@@ -407,10 +409,7 @@ export default function RegisterPage() {
                     onChange={(e) => setGdprData(e.target.checked)}
                     className="mt-0.5 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-slate-600">
-                    <strong>Data Processing Consent</strong> — I agree to the processing of my personal and medical
-                    data for the purpose of healthcare services. (Required)
-                  </span>
+                  <span className="text-sm text-slate-600">{t('auth.gdprDataProcessing')}</span>
                 </label>
 
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -420,22 +419,19 @@ export default function RegisterPage() {
                     onChange={(e) => setGdprDoctor(e.target.checked)}
                     className="mt-0.5 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-slate-600">
-                    <strong>Doctor Access Consent</strong> — I agree that my assigned doctor can access my medical
-                    records. (Required)
-                  </span>
+                  <span className="text-sm text-slate-600">{t('auth.gdprDoctorAccess')}</span>
                 </label>
               </div>
 
               <button type="submit" className="btn-primary w-full" disabled={loading}>
-                {loading ? 'Creating account…' : 'Create account'}
+                {loading ? t('auth.creatingAccount') : t('auth.createAccount')}
               </button>
             </form>
 
             <p className="mt-4 text-center text-sm text-slate-500">
-              Already have an account?{' '}
+              {t('auth.alreadyHaveAccount')}{' '}
               <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
-                Sign in
+                {t('auth.signIn')}
               </Link>
             </p>
           </div>

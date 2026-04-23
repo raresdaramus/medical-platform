@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
-import { getDoctorPendingConsultations } from '../../api/consultationApi';
+import { getDoctorAllConsultations } from '../../api/consultationApi';
 import type { ConsultationResponse, ConsultationStatus } from '../../types';
 
-function statusBadge(status: ConsultationStatus) {
-  switch (status) {
-    case 'PENDING':      return <span className="badge-yellow">Pending</span>;
-    case 'CONFIRMED':    return <span className="badge-blue">Confirmed</span>;
-    case 'IN_PROGRESS':  return <span className="badge-green">In Progress</span>;
-    case 'COMPLETED':    return <span className="badge-slate">Completed</span>;
-    case 'CANCELLED':    return <span className="badge-red">Cancelled</span>;
-    default:             return <span className="badge-slate">{status}</span>;
-  }
+function statusBadge(status: ConsultationStatus, t: (k: string) => string) {
+  const map: Record<ConsultationStatus, string> = {
+    PENDING: 'badge-yellow',
+    CONFIRMED: 'badge-blue',
+    IN_PROGRESS: 'badge-green',
+    COMPLETED: 'badge-slate',
+    CANCELLED: 'badge-red',
+  };
+  return <span className={map[status]}>{t('status.' + status)}</span>;
 }
 
 const STATUS_ORDER: Record<ConsultationStatus, number> = {
@@ -26,6 +27,7 @@ const STATUS_ORDER: Record<ConsultationStatus, number> = {
 export default function DoctorConsultationsPage() {
   const { profileId } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [consultations, setConsultations] = useState<ConsultationResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,9 +36,9 @@ export default function DoctorConsultationsPage() {
 
   useEffect(() => {
     if (!profileId) return;
-    getDoctorPendingConsultations(profileId)
+    getDoctorAllConsultations(profileId)
       .then(setConsultations)
-      .catch(() => setError('Failed to load consultations.'))
+      .catch(() => setError(t('consultations.failedLoad')))
       .finally(() => setLoading(false));
   }, [profileId]);
 
@@ -54,17 +56,15 @@ export default function DoctorConsultationsPage() {
   }, {});
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-slate-400">Loading…</div>;
+    return <div className="flex items-center justify-center py-20 text-slate-400">{t('common.loading')}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Consultations</h1>
-        <p className="text-slate-500 mt-1">Manage your patient consultations.</p>
-        <p className="text-xs text-slate-400 mt-1">
-          Showing active and recent consultations. Completed and cancelled consultations may not appear.
-        </p>
+        <h1 className="text-2xl font-bold text-slate-900">{t('consultations.myConsultations')}</h1>
+        <p className="text-slate-500 mt-1">{t('consultations.managingConsultations')}</p>
+        <p className="text-xs text-slate-400 mt-1">{t('consultations.consultationsNote')}</p>
       </div>
 
       {error && (
@@ -85,7 +85,7 @@ export default function DoctorConsultationsPage() {
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
-              {s === 'ALL' ? 'All' : s.replace('_', ' ')}
+              {s === 'ALL' ? t('consultations.all') : t('status.' + s)}
               {count > 0 && (
                 <span className={`ml-1.5 text-xs ${filterStatus === s ? 'text-blue-200' : 'text-slate-400'}`}>
                   {count}
@@ -98,18 +98,18 @@ export default function DoctorConsultationsPage() {
 
       {filtered.length === 0 ? (
         <div className="card card-body text-center py-12">
-          <p className="text-slate-500">No consultations found.</p>
+          <p className="text-slate-500">{t('consultations.noFound')}</p>
         </div>
       ) : (
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Patient</th>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Scheduled</th>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Type</th>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Duration</th>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">Status</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.patient')}</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.scheduled')}</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.type')}</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.duration')}</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.status')}</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
@@ -132,10 +132,10 @@ export default function DoctorConsultationsPage() {
                   <td className="px-6 py-4 text-slate-600 capitalize">
                     {c.consultationType.replace('_', ' ').toLowerCase()}
                   </td>
-                  <td className="px-6 py-4 text-slate-600">{c.slotDurationMinutes} min</td>
-                  <td className="px-6 py-4">{statusBadge(c.status)}</td>
+                  <td className="px-6 py-4 text-slate-600">{c.slotDurationMinutes} {t('common.min')}</td>
+                  <td className="px-6 py-4">{statusBadge(c.status, t)}</td>
                   <td className="px-6 py-4">
-                    <span className="text-blue-600 text-xs font-medium">Open →</span>
+                    <span className="text-blue-600 text-xs font-medium">{t('common.open')}</span>
                   </td>
                 </tr>
               ))}

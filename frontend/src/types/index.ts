@@ -179,6 +179,7 @@ export interface ConsultationResponse {
 
 export interface SymptomEntry {
   symptomId?: string;
+  symptomName?: string;
   customText?: string;
   severity: SeverityLevel;
   onsetDate?: string;
@@ -191,6 +192,18 @@ export interface IntakeFormRequest {
   allergies: string;
   additionalNotes: string;
   symptoms: SymptomEntry[];
+  temperature?: number | null;
+  bloodPressure?: string;
+  bloodGlucose?: number | null;
+  bodyZone?: string;
+  bodyZoneSymptoms?: string;
+  symptomOnset?: string;
+  painIntensity?: string;
+  painType?: string;
+  hadSymptomsBefore?: boolean | null;
+  generalSymptoms?: string;
+  medicationsTakenText?: string;
+  knownConditions?: string;
 }
 
 export interface IntakeResponse {
@@ -203,6 +216,18 @@ export interface IntakeResponse {
   additionalNotes: string;
   symptoms: SymptomEntry[];
   submittedAt: string;
+  temperature?: number | null;
+  bloodPressure?: string;
+  bloodGlucose?: number | null;
+  bodyZone?: string;
+  bodyZoneSymptoms?: string;
+  symptomOnset?: string;
+  painIntensity?: string;
+  painType?: string;
+  hadSymptomsBefore?: boolean | null;
+  generalSymptoms?: string;
+  medicationsTakenText?: string;
+  knownConditions?: string;
 }
 
 export interface DiagnosisRequest {
@@ -247,10 +272,10 @@ export interface PrescriptionItemResponse {
   id: string;
   medicationId?: string;
   medicationName?: string;
-  dosage: string;
-  frequency: string;
-  durationDays: number;
-  quantity: number;
+  dosage?: string;
+  frequency?: string;
+  durationDays?: number;
+  quantity?: number;
 }
 
 export interface PrescriptionResponse {
@@ -315,9 +340,10 @@ export interface MedicationDto {
 }
 
 export interface DiseaseSuggestion {
-  disease: DiseaseDto;
+  diseaseId: string;
+  diseaseName: string;
+  icd10Code?: string;
   score: number;
-  matchedSymptoms: string[];
 }
 
 // ─── Medical Record ───────────────────────────────────────────────────────────

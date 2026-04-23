@@ -36,13 +36,15 @@ public class OntologyService {
 
     public List<DiseaseSuggestion> suggestDiseases(List<UUID> symptomIds) {
         if (symptomIds == null || symptomIds.isEmpty()) return List.of();
+        int totalSymptoms = symptomIds.size();
         List<Object[]> results = diseaseSymptomLinkRepository.findTopDiseasesBySymptoms(symptomIds);
         List<DiseaseSuggestion> suggestions = new ArrayList<>();
         for (Object[] row : results) {
             UUID diseaseId = (UUID) row[0];
-            double score = ((Number) row[1]).doubleValue();
+            double rawScore = ((Number) row[1]).doubleValue();
+            double normalizedScore = rawScore / totalSymptoms;
             diseaseRepository.findById(diseaseId).ifPresent(disease ->
-                suggestions.add(new DiseaseSuggestion(diseaseId, disease.getName(), disease.getIcd10Code(), score))
+                suggestions.add(new DiseaseSuggestion(diseaseId, disease.getName(), disease.getIcd10Code(), normalizedScore))
             );
             if (suggestions.size() >= 5) break;
         }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   getConsultation,
   startConsultation,
@@ -27,16 +28,16 @@ import type {
 
 type Tab = 'overview' | 'symptoms' | 'diagnosis' | 'prescription' | 'referral';
 
-function statusBadge(status: ConsultationStatus) {
-  const map: Record<ConsultationStatus, [string, string]> = {
-    PENDING: ['badge-yellow', 'Pending'],
-    CONFIRMED: ['badge-blue', 'Confirmed'],
-    IN_PROGRESS: ['badge-green', 'In Progress'],
-    COMPLETED: ['badge-slate', 'Completed'],
-    CANCELLED: ['badge-red', 'Cancelled'],
+function StatusBadge({ status, t }: { status: ConsultationStatus; t: (k: string) => string }) {
+  const map: Record<string, string> = {
+    PENDING: 'badge-yellow',
+    CONFIRMED: 'badge-blue',
+    IN_PROGRESS: 'badge-green',
+    COMPLETED: 'badge-slate',
+    CANCELLED: 'badge-red',
   };
-  const [cls, label] = map[status];
-  return <span className={cls}>{label}</span>;
+  const cls = map[status] ?? 'badge-slate';
+  return <span className={cls}>{t('status.' + status)}</span>;
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
@@ -52,32 +53,33 @@ function OverviewTab({
   onComplete: (note: string) => void;
   actionLoading: boolean;
 }) {
+  const { t } = useTranslation();
   const [noteDoctor, setNoteDoctor] = useState('');
 
   return (
     <div className="space-y-4">
       <div className="card">
         <div className="card-header flex items-center justify-between">
-          <h3 className="font-semibold text-slate-900">Consultation Info</h3>
-          {statusBadge(consultation.status)}
+          <h3 className="font-semibold text-slate-900">{t('workspace.consultationInfo')}</h3>
+          <StatusBadge status={consultation.status} t={t} />
         </div>
         <div className="card-body">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <div>
-              <dt className="text-slate-500">Scheduled</dt>
+              <dt className="text-slate-500">{t('workspace.scheduled')}</dt>
               <dd className="font-medium text-slate-800 mt-0.5">
                 {new Date(consultation.scheduledAt).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Type</dt>
+              <dt className="text-slate-500">{t('workspace.type')}</dt>
               <dd className="font-medium text-slate-800 mt-0.5 capitalize">
                 {consultation.consultationType.replace('_', ' ').toLowerCase()}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Duration</dt>
-              <dd className="font-medium text-slate-800 mt-0.5">{consultation.slotDurationMinutes} min</dd>
+              <dt className="text-slate-500">{t('workspace.duration')}</dt>
+              <dd className="font-medium text-slate-800 mt-0.5">{consultation.slotDurationMinutes} {t('common.min')}</dd>
             </div>
           </dl>
         </div>
@@ -87,14 +89,25 @@ function OverviewTab({
       {consultation.intake && (
         <div className="card">
           <div className="card-header">
-            <h3 className="font-semibold text-slate-900">Patient Intake</h3>
+            <h3 className="font-semibold text-slate-900">{t('workspace.patientIntake')}</h3>
           </div>
           <div className="card-body text-sm space-y-2">
-            <div><span className="text-slate-500">Chief complaint: </span><span className="font-medium">{consultation.intake.chiefComplaint}</span></div>
-            {consultation.intake.symptomDuration && <div><span className="text-slate-500">Duration: </span>{consultation.intake.symptomDuration}</div>}
-            {consultation.intake.currentMedications && <div><span className="text-slate-500">Medications: </span>{consultation.intake.currentMedications}</div>}
-            {consultation.intake.allergies && <div><span className="text-slate-500">Allergies: </span>{consultation.intake.allergies}</div>}
-            {consultation.intake.additionalNotes && <div><span className="text-slate-500">Notes: </span>{consultation.intake.additionalNotes}</div>}
+            <div><span className="text-slate-500">{t('workspace.chiefComplaint')}: </span><span className="font-medium">{consultation.intake.chiefComplaint}</span></div>
+            {consultation.intake.temperature != null && <div><span className="text-slate-500">{t('workspace.temperature')}: </span><span className="font-medium">{consultation.intake.temperature} °C</span></div>}
+            {consultation.intake.bloodPressure && <div><span className="text-slate-500">{t('workspace.bloodPressure')}: </span><span className="font-medium">{consultation.intake.bloodPressure}</span></div>}
+            {consultation.intake.bloodGlucose != null && <div><span className="text-slate-500">{t('workspace.bloodGlucose')}: </span><span className="font-medium">{consultation.intake.bloodGlucose} mg/dL</span></div>}
+            {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('workspace.symptomOnset')}: </span>{consultation.intake.symptomOnset}</div>}
+            {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('workspace.painIntensity')}: </span>{consultation.intake.painIntensity}</div>}
+            {consultation.intake.painType && <div><span className="text-slate-500">{t('workspace.painType')}: </span>{consultation.intake.painType}</div>}
+            {consultation.intake.hadSymptomsBefore != null && <div><span className="text-slate-500">{t('workspace.hadBefore')}: </span>{consultation.intake.hadSymptomsBefore ? t('common.yes') : t('common.no')}</div>}
+            {consultation.intake.bodyZone && <div><span className="text-slate-500">{t('workspace.bodyZone')}: </span><span className="font-medium">{consultation.intake.bodyZone}</span></div>}
+            {consultation.intake.bodyZoneSymptoms && <div><span className="text-slate-500">{t('workspace.zoneSymptoms')}: </span>{consultation.intake.bodyZoneSymptoms}</div>}
+            {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('workspace.generalSymptoms')}: </span>{consultation.intake.generalSymptoms}</div>}
+            {consultation.intake.knownConditions && <div><span className="text-slate-500">{t('workspace.knownConditions')}: </span>{consultation.intake.knownConditions}</div>}
+            {consultation.intake.medicationsTakenText && <div><span className="text-slate-500">{t('workspace.medsTaken')}: </span>{consultation.intake.medicationsTakenText}</div>}
+            {consultation.intake.currentMedications && <div><span className="text-slate-500">{t('workspace.currentMedications')}: </span>{consultation.intake.currentMedications}</div>}
+            {consultation.intake.allergies && <div><span className="text-slate-500">{t('workspace.allergies')}: </span>{consultation.intake.allergies}</div>}
+            {consultation.intake.additionalNotes && <div><span className="text-slate-500">{t('workspace.notes')}: </span>{consultation.intake.additionalNotes}</div>}
           </div>
         </div>
       )}
@@ -103,19 +116,19 @@ function OverviewTab({
       <div className="card card-body flex flex-wrap gap-3">
         {consultation.status === 'CONFIRMED' && (
           <button className="btn-success" onClick={onStart} disabled={actionLoading}>
-            {actionLoading ? '…' : 'Start consultation'}
+            {actionLoading ? '…' : t('workspace.startConsultation')}
           </button>
         )}
         {consultation.status === 'IN_PROGRESS' && (
           <div className="w-full space-y-3">
             <div>
-              <label className="label">Doctor's closing note</label>
+              <label className="label">{t('workspace.doctorsClosingNote')}</label>
               <textarea
                 className="input-field"
                 rows={3}
                 value={noteDoctor}
                 onChange={(e) => setNoteDoctor(e.target.value)}
-                placeholder="Summary notes for this consultation…"
+                placeholder={t('workspace.closingNotePlaceholder')}
               />
             </div>
             <button
@@ -123,15 +136,17 @@ function OverviewTab({
               onClick={() => onComplete(noteDoctor)}
               disabled={actionLoading}
             >
-              {actionLoading ? '…' : 'Complete consultation'}
+              {actionLoading ? '…' : t('workspace.completeConsultation')}
             </button>
           </div>
         )}
         {['COMPLETED', 'CANCELLED'].includes(consultation.status) && (
-          <p className="text-slate-500 text-sm">This consultation is {consultation.status.toLowerCase()}.</p>
+          <p className="text-slate-500 text-sm">
+            {t('status.' + consultation.status)}
+          </p>
         )}
         {consultation.status === 'PENDING' && (
-          <p className="text-slate-500 text-sm">Waiting for confirmation. Go back to dashboard to confirm.</p>
+          <p className="text-slate-500 text-sm">{t('workspace.waitingConfirmation')}</p>
         )}
       </div>
     </div>
@@ -141,6 +156,7 @@ function OverviewTab({
 // ─── Symptoms Tab ─────────────────────────────────────────────────────────────
 
 function SymptomsTab({ consultation }: { consultation: FullConsultationResponse }) {
+  const { t } = useTranslation();
   const [suggestions, setSuggestions] = useState<DiseaseSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -162,26 +178,26 @@ function SymptomsTab({ consultation }: { consultation: FullConsultationResponse 
     <div className="space-y-4">
       {symptoms.length === 0 ? (
         <div className="card card-body text-center py-8">
-          <p className="text-slate-500">No symptoms recorded in the intake form.</p>
+          <p className="text-slate-500">{t('workspace.noSymptoms')}</p>
         </div>
       ) : (
         <div className="card">
           <div className="card-header flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900">Reported Symptoms</h3>
+            <h3 className="font-semibold text-slate-900">{t('workspace.reportedSymptoms')}</h3>
             {symptomIds.length > 0 && (
               <button className="btn-secondary text-xs" onClick={handleSuggest} disabled={loading}>
-                {loading ? 'Analyzing…' : 'Get disease suggestions'}
+                {loading ? t('workspace.analyzing') : t('workspace.getSuggestions')}
               </button>
             )}
           </div>
           <div className="divide-y divide-slate-100">
             {symptoms.map((s, i) => (
               <div key={i} className="card-body flex items-center justify-between text-sm">
-                <span className="font-medium text-slate-800">{s.customText ?? s.symptomId}</span>
+                <span className="font-medium text-slate-800">{s.customText ?? s.symptomName ?? s.symptomId}</span>
                 <div className="flex items-center gap-3">
                   {s.onsetDate && (
                     <span className="text-slate-500 text-xs">
-                      Since {new Date(s.onsetDate).toLocaleDateString()}
+                      {t('workspace.since')} {new Date(s.onsetDate).toLocaleDateString()}
                     </span>
                   )}
                   <span
@@ -193,7 +209,7 @@ function SymptomsTab({ consultation }: { consultation: FullConsultationResponse 
                         : 'badge-green'
                     }
                   >
-                    {s.severity}
+                    {s.severity ? t('intake.severity.' + s.severity) : ''}
                   </span>
                 </div>
               </div>
@@ -205,23 +221,18 @@ function SymptomsTab({ consultation }: { consultation: FullConsultationResponse 
       {suggestions.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h3 className="font-semibold text-slate-900">Disease Suggestions</h3>
-            <p className="text-xs text-slate-500 mt-0.5">AI-assisted differential diagnosis based on symptoms.</p>
+            <h3 className="font-semibold text-slate-900">{t('workspace.diseaseSuggestions')}</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{t('workspace.aiDiagnosis')}</p>
           </div>
           <div className="divide-y divide-slate-100">
             {suggestions.map((s, i) => (
               <div key={i} className="card-body text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-800">{s.disease.name}</span>
-                  <span className="badge-blue">{Math.round(s.score * 100)}% match</span>
+                  <span className="font-medium text-slate-800">{s.diseaseName}</span>
+                  <span className="badge-blue">{Math.round(s.score * 100)}{t('workspace.match')}</span>
                 </div>
-                {s.disease.icd10Code && (
-                  <span className="text-xs text-slate-500">ICD-10: {s.disease.icd10Code}</span>
-                )}
-                {s.matchedSymptoms.length > 0 && (
-                  <div className="mt-1 text-xs text-slate-500">
-                    Matched: {s.matchedSymptoms.join(', ')}
-                  </div>
+                {s.icd10Code && (
+                  <span className="text-xs text-slate-500">ICD-10: {s.icd10Code}</span>
                 )}
               </div>
             ))}
@@ -241,6 +252,7 @@ function DiagnosisTab({
   consultation: FullConsultationResponse;
   onAdd: () => void;
 }) {
+  const { t } = useTranslation();
   const [diseaseSearch, setDiseaseSearch] = useState('');
   const [diseaseResults, setDiseaseResults] = useState<DiseaseDto[]>([]);
   const [selectedDisease, setSelectedDisease] = useState<DiseaseDto | null>(null);
@@ -262,7 +274,7 @@ function DiagnosisTab({
 
   const handleSubmit = async () => {
     if (!selectedDisease && !customDiagnosis.trim()) {
-      setFormError('Select a disease or enter a custom diagnosis.');
+      setFormError(t('workspace.selectDiseaseOrCustom'));
       return;
     }
     setSubmitting(true);
@@ -286,7 +298,7 @@ function DiagnosisTab({
       onAdd();
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
-      setFormError(axiosError.response?.data?.error?.message ?? 'Failed to add diagnosis.');
+      setFormError(axiosError.response?.data?.error?.message ?? t('workspace.failedDiagnosis'));
     } finally {
       setSubmitting(false);
     }
@@ -297,18 +309,18 @@ function DiagnosisTab({
   return (
     <div className="space-y-4">
       {/* Existing */}
-      {consultation.diagnoses.length > 0 && (
+      {(consultation.diagnoses ?? []).length > 0 && (
         <div className="card">
-          <div className="card-header"><h3 className="font-semibold text-slate-900">Diagnoses</h3></div>
+          <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.diagnoses')}</h3></div>
           <div className="divide-y divide-slate-100">
-            {consultation.diagnoses.map((d) => (
+            {(consultation.diagnoses ?? []).map((d) => (
               <div key={d.id} className="card-body text-sm">
                 <div className="font-medium text-slate-800">
-                  {d.diseaseName ?? d.customDiagnosis ?? 'Unknown'}
+                  {d.diseaseName ?? d.customDiagnosis ?? t('workspace.unknown')}
                   {d.icd10Code && <span className="ml-2 text-xs text-slate-500">{d.icd10Code}</span>}
                 </div>
                 <div className="text-slate-500 text-xs mt-0.5">
-                  Confidence: {Math.round(d.confidence * 100)}% · {new Date(d.diagnosisDate).toLocaleDateString()}
+                  {t('workspace.confidenceLabel')}: {Math.round(d.confidence * 100)}% · {new Date(d.diagnosisDate).toLocaleDateString()}
                 </div>
                 {d.notes && <div className="text-slate-600 mt-1">{d.notes}</div>}
               </div>
@@ -320,24 +332,24 @@ function DiagnosisTab({
       {/* Add form */}
       {isEditable && (
         <div className="card">
-          <div className="card-header"><h3 className="font-semibold text-slate-900">Add diagnosis</h3></div>
+          <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.addDiagnosisForm')}</h3></div>
           <div className="card-body space-y-4">
             {formError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{formError}</div>
             )}
 
             <div>
-              <label className="label">Search disease</label>
+              <label className="label">{t('workspace.searchDisease')}</label>
               <input
                 type="text"
                 className="input-field"
                 value={diseaseSearch}
                 onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Type disease name…"
+                placeholder={t('workspace.searchDisease')}
               />
               {selectedDisease && (
                 <div className="mt-1 p-2 bg-blue-50 rounded-lg text-sm text-blue-800">
-                  Selected: <strong>{selectedDisease.name}</strong>
+                  {t('booking.selected')} <strong>{selectedDisease.name}</strong>
                   {selectedDisease.icd10Code && ` (${selectedDisease.icd10Code})`}
                   <button className="ml-2 text-xs text-blue-600" onClick={() => { setSelectedDisease(null); setDiseaseSearch(''); }}>✕</button>
                 </div>
@@ -359,19 +371,19 @@ function DiagnosisTab({
             </div>
 
             <div>
-              <label className="label">Custom diagnosis (if not in list)</label>
+              <label className="label">{t('workspace.customDiagnosisLabel')}</label>
               <input
                 type="text"
                 className="input-field"
                 value={customDiagnosis}
                 onChange={(e) => setCustomDiagnosis(e.target.value)}
-                placeholder="Custom diagnosis text"
+                placeholder={t('workspace.orCustom')}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">ICD-10 Code (optional)</label>
+                <label className="label">{t('workspace.icd10Optional')}</label>
                 <input
                   type="text"
                   className="input-field"
@@ -381,7 +393,7 @@ function DiagnosisTab({
                 />
               </div>
               <div>
-                <label className="label">Confidence</label>
+                <label className="label">{t('workspace.confidenceLabel')}</label>
                 <input
                   type="range"
                   min={0}
@@ -396,7 +408,7 @@ function DiagnosisTab({
             </div>
 
             <div>
-              <label className="label">Diagnosis date</label>
+              <label className="label">{t('workspace.diagnosisDate')}</label>
               <input
                 type="date"
                 className="input-field"
@@ -406,22 +418,28 @@ function DiagnosisTab({
             </div>
 
             <div>
-              <label className="label">Notes</label>
+              <label className="label">{t('workspace.diagnosisNotes')}</label>
               <textarea
                 className="input-field"
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Clinical notes…"
+                placeholder={t('workspace.diagnosisNotes') + '…'}
               />
             </div>
 
             <div className="flex justify-end">
               <button className="btn-primary" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? 'Adding…' : 'Add diagnosis'}
+                {submitting ? '…' : t('workspace.saveDiagnosis')}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {(consultation.diagnoses ?? []).length === 0 && !isEditable && (
+        <div className="card card-body text-center py-8">
+          <p className="text-slate-500">{t('workspace.noDiagnoses')}</p>
         </div>
       )}
     </div>
@@ -437,7 +455,8 @@ function PrescriptionTab({
   consultation: FullConsultationResponse;
   onAdd: () => void;
 }) {
-  const [diagnosisId, setDiagnosisId] = useState(consultation.diagnoses[0]?.id ?? '');
+  const { t } = useTranslation();
+  const [diagnosisId, setDiagnosisId] = useState((consultation.diagnoses ?? [])[0]?.id ?? '');
   const [customInstructions, setCustomInstructions] = useState('');
   const [validFrom, setValidFrom] = useState(new Date().toISOString().slice(0, 10));
   const [validUntil, setValidUntil] = useState('');
@@ -479,8 +498,8 @@ function PrescriptionTab({
   };
 
   const handleSubmit = async () => {
-    if (items.length === 0) { setFormError('Add at least one medication item.'); return; }
-    if (!validUntil) { setFormError('Valid until date is required.'); return; }
+    if (items.length === 0) { setFormError(t('workspace.atLeastOneMed')); return; }
+    if (!validUntil) { setFormError(t('workspace.validUntilRequired')); return; }
     setSubmitting(true);
     setFormError('');
 
@@ -500,7 +519,7 @@ function PrescriptionTab({
       onAdd();
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
-      setFormError(axiosError.response?.data?.error?.message ?? 'Failed to add prescription.');
+      setFormError(axiosError.response?.data?.error?.message ?? t('workspace.failedPrescription'));
     } finally {
       setSubmitting(false);
     }
@@ -511,20 +530,20 @@ function PrescriptionTab({
   return (
     <div className="space-y-4">
       {/* Existing */}
-      {consultation.prescriptions.length > 0 && (
+      {(consultation.prescriptions ?? []).length > 0 && (
         <div className="card">
-          <div className="card-header"><h3 className="font-semibold text-slate-900">Prescriptions</h3></div>
+          <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.prescriptions')}</h3></div>
           <div className="divide-y divide-slate-100">
-            {consultation.prescriptions.map((p) => (
+            {(consultation.prescriptions ?? []).map((p) => (
               <div key={p.id} className="card-body text-sm space-y-2">
                 {p.customInstructions && <p className="text-slate-700">{p.customInstructions}</p>}
                 <div className="text-xs text-slate-500">
-                  Valid: {new Date(p.validFrom).toLocaleDateString()} – {new Date(p.validUntil).toLocaleDateString()}
+                  {t('workspace.validRange')} {new Date(p.validFrom).toLocaleDateString()} – {new Date(p.validUntil).toLocaleDateString()}
                 </div>
-                {p.items.map((item) => (
+                {(p.items ?? []).map((item) => (
                   <div key={item.id} className="pl-3 border-l-2 border-blue-200 text-sm">
-                    <div className="font-medium">{item.medicationName ?? 'Medication'}</div>
-                    <div className="text-slate-500">{item.dosage} · {item.frequency} · {item.durationDays}d · qty {item.quantity}</div>
+                    <div className="font-medium">{item.medicationName ?? t('workspace.searchMedication')}</div>
+                    <div className="text-slate-500">{item.dosage} · {item.frequency} · {item.durationDays}{t('intake.days')} · {t('intake.qty')} {item.quantity}</div>
                   </div>
                 ))}
               </div>
@@ -535,21 +554,21 @@ function PrescriptionTab({
 
       {isEditable && (
         <div className="card">
-          <div className="card-header"><h3 className="font-semibold text-slate-900">Add prescription</h3></div>
+          <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.addPrescriptionForm')}</h3></div>
           <div className="card-body space-y-4">
             {formError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{formError}</div>
             )}
 
-            {consultation.diagnoses.length > 0 && (
+            {(consultation.diagnoses ?? []).length > 0 && (
               <div>
-                <label className="label">Linked diagnosis</label>
+                <label className="label">{t('workspace.linkedDiagnosis')}</label>
                 <select
                   className="input-field"
                   value={diagnosisId}
                   onChange={(e) => setDiagnosisId(e.target.value)}
                 >
-                  {consultation.diagnoses.map((d) => (
+                  {(consultation.diagnoses ?? []).map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.diseaseName ?? d.customDiagnosis ?? d.id}
                     </option>
@@ -559,40 +578,40 @@ function PrescriptionTab({
             )}
 
             <div>
-              <label className="label">Custom instructions</label>
+              <label className="label">{t('workspace.instructions')}</label>
               <textarea
                 className="input-field"
                 rows={2}
                 value={customInstructions}
                 onChange={(e) => setCustomInstructions(e.target.value)}
-                placeholder="General instructions for the patient…"
+                placeholder={t('workspace.instructions') + '…'}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">Valid from</label>
+                <label className="label">{t('workspace.validFrom')}</label>
                 <input type="date" className="input-field" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
               </div>
               <div>
-                <label className="label">Valid until *</label>
+                <label className="label">{t('workspace.validUntil')} *</label>
                 <input type="date" className="input-field" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} required />
               </div>
             </div>
 
             {/* Medication search */}
             <div>
-              <label className="label">Add medication</label>
+              <label className="label">{t('workspace.addMedication')}</label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   className="input-field flex-1"
                   value={medSearch}
                   onChange={(e) => handleMedSearch(e.target.value)}
-                  placeholder="Search medication…"
+                  placeholder={t('workspace.searchMedication')}
                 />
                 <button type="button" className="btn-secondary" onClick={() => addItem()}>
-                  Add custom
+                  {t('workspace.addCustom')}
                 </button>
               </div>
               {medResults.length > 0 && (
@@ -617,24 +636,24 @@ function PrescriptionTab({
                 {items.map((item, i) => (
                   <div key={i} className="bg-slate-50 rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">{item.medName ?? 'Medication'}</span>
-                      <button type="button" className="text-red-500 text-xs" onClick={() => removeItem(i)}>Remove</button>
+                      <span className="text-sm font-medium text-slate-700">{item.medName ?? t('workspace.searchMedication')}</span>
+                      <button type="button" className="text-red-500 text-xs" onClick={() => removeItem(i)}>{t('workspace.remove')}</button>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <label className="label text-xs">Dosage</label>
+                        <label className="label text-xs">{t('workspace.dosage')}</label>
                         <input type="text" className="input-field py-1" placeholder="e.g. 500mg" value={item.dosage} onChange={(e) => updateItem(i, 'dosage', e.target.value)} />
                       </div>
                       <div>
-                        <label className="label text-xs">Frequency</label>
+                        <label className="label text-xs">{t('workspace.frequency')}</label>
                         <input type="text" className="input-field py-1" placeholder="e.g. 3x daily" value={item.frequency} onChange={(e) => updateItem(i, 'frequency', e.target.value)} />
                       </div>
                       <div>
-                        <label className="label text-xs">Duration (days)</label>
+                        <label className="label text-xs">{t('workspace.duration')}</label>
                         <input type="number" className="input-field py-1" min={1} value={item.durationDays} onChange={(e) => updateItem(i, 'durationDays', parseInt(e.target.value))} />
                       </div>
                       <div>
-                        <label className="label text-xs">Quantity</label>
+                        <label className="label text-xs">{t('workspace.quantity')}</label>
                         <input type="number" className="input-field py-1" min={1} value={item.quantity} onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value))} />
                       </div>
                     </div>
@@ -645,10 +664,16 @@ function PrescriptionTab({
 
             <div className="flex justify-end">
               <button className="btn-primary" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? 'Adding…' : 'Add prescription'}
+                {submitting ? '…' : t('workspace.savePrescription')}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {(consultation.prescriptions ?? []).length === 0 && !isEditable && (
+        <div className="card card-body text-center py-8">
+          <p className="text-slate-500">{t('workspace.noPrescriptions')}</p>
         </div>
       )}
     </div>
@@ -664,6 +689,7 @@ function ReferralTab({
   consultation: FullConsultationResponse;
   onAdd: () => void;
 }) {
+  const { t } = useTranslation();
   const [referralType, setReferralType] = useState<ReferralType>('SPECIALIST');
   const [destination, setDestination] = useState('');
   const [reason, setReason] = useState('');
@@ -672,10 +698,8 @@ function ReferralTab({
   const [formError, setFormError] = useState('');
 
   const handleSubmit = async () => {
-    if (!destination.trim() || !reason.trim()) {
-      setFormError('Destination and reason are required.');
-      return;
-    }
+    if (!destination.trim()) { setFormError(t('workspace.destinationRequired')); return; }
+    if (!reason.trim()) { setFormError(t('workspace.reasonRequired')); return; }
     setSubmitting(true);
     setFormError('');
     const payload: ReferralRequest = { referralType, destination, reason, urgency };
@@ -686,7 +710,7 @@ function ReferralTab({
       onAdd();
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
-      setFormError(axiosError.response?.data?.error?.message ?? 'Failed to add referral.');
+      setFormError(axiosError.response?.data?.error?.message ?? t('workspace.failedReferral'));
     } finally {
       setSubmitting(false);
     }
@@ -696,15 +720,15 @@ function ReferralTab({
 
   return (
     <div className="space-y-4">
-      {consultation.referrals.length > 0 && (
+      {(consultation.referrals ?? []).length > 0 && (
         <div className="card">
-          <div className="card-header"><h3 className="font-semibold text-slate-900">Referrals</h3></div>
+          <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.referrals')}</h3></div>
           <div className="divide-y divide-slate-100">
-            {consultation.referrals.map((r) => (
+            {(consultation.referrals ?? []).map((r) => (
               <div key={r.id} className="card-body text-sm">
                 <div className="font-medium text-slate-800">{r.referralType} → {r.destination}</div>
                 <div className="text-slate-600 mt-0.5">{r.reason}</div>
-                <div className="text-xs text-slate-500 mt-0.5">Urgency: {r.urgency}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t('workspace.urgency')}: {r.urgency}</div>
               </div>
             ))}
           </div>
@@ -713,7 +737,7 @@ function ReferralTab({
 
       {isEditable && (
         <div className="card">
-          <div className="card-header"><h3 className="font-semibold text-slate-900">Add referral</h3></div>
+          <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.addReferralForm')}</h3></div>
           <div className="card-body space-y-4">
             {formError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{formError}</div>
@@ -721,53 +745,59 @@ function ReferralTab({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">Referral type</label>
+                <label className="label">{t('workspace.referralType')}</label>
                 <select className="input-field" value={referralType} onChange={(e) => setReferralType(e.target.value as ReferralType)}>
-                  <option value="SPECIALIST">Specialist</option>
-                  <option value="LABORATORY">Laboratory</option>
-                  <option value="IMAGING">Imaging</option>
-                  <option value="HOSPITAL">Hospital</option>
-                  <option value="OTHER">Other</option>
+                  <option value="SPECIALIST">{t('workspace.specialist')}</option>
+                  <option value="LABORATORY">{t('workspace.laboratory')}</option>
+                  <option value="IMAGING">{t('workspace.imaging')}</option>
+                  <option value="HOSPITAL">{t('workspace.hospital')}</option>
+                  <option value="OTHER">{t('workspace.other')}</option>
                 </select>
               </div>
               <div>
-                <label className="label">Urgency</label>
+                <label className="label">{t('workspace.urgency')}</label>
                 <select className="input-field" value={urgency} onChange={(e) => setUrgency(e.target.value as UrgencyLevel)}>
-                  <option value="ROUTINE">Routine</option>
-                  <option value="URGENT">Urgent</option>
-                  <option value="EMERGENCY">Emergency</option>
+                  <option value="ROUTINE">{t('workspace.routine')}</option>
+                  <option value="URGENT">{t('workspace.urgent')}</option>
+                  <option value="EMERGENCY">{t('workspace.emergency')}</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="label">Destination *</label>
+              <label className="label">{t('workspace.destination')} *</label>
               <input
                 type="text"
                 className="input-field"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-                placeholder="e.g. Cardiology dept., Spitalul Județean"
+                placeholder="e.g. Cardiology dept."
               />
             </div>
 
             <div>
-              <label className="label">Reason *</label>
+              <label className="label">{t('workspace.reason')} *</label>
               <textarea
                 className="input-field"
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Reason for referral…"
+                placeholder={t('workspace.reason') + '…'}
               />
             </div>
 
             <div className="flex justify-end">
               <button className="btn-primary" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? 'Adding…' : 'Add referral'}
+                {submitting ? '…' : t('workspace.saveReferral')}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {(consultation.referrals ?? []).length === 0 && !isEditable && (
+        <div className="card card-body text-center py-8">
+          <p className="text-slate-500">{t('workspace.noReferrals')}</p>
         </div>
       )}
     </div>
@@ -779,6 +809,7 @@ function ReferralTab({
 export default function ConsultationWorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [consultation, setConsultation] = useState<FullConsultationResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -792,7 +823,7 @@ export default function ConsultationWorkspacePage() {
       const data = await getConsultation(id);
       setConsultation(data);
     } catch {
-      setError('Failed to load consultation.');
+      setError(t('workspace.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -804,7 +835,7 @@ export default function ConsultationWorkspacePage() {
     if (!id) return;
     setActionLoading(true);
     try { await startConsultation(id); await load(); }
-    catch { setError('Failed to start consultation.'); }
+    catch { setError(t('workspace.failedStart')); }
     finally { setActionLoading(false); }
   };
 
@@ -812,24 +843,24 @@ export default function ConsultationWorkspacePage() {
     if (!id) return;
     setActionLoading(true);
     try { await completeConsultation(id, { noteDoctor: note }); await load(); }
-    catch { setError('Failed to complete consultation.'); }
+    catch { setError(t('workspace.failedComplete')); }
     finally { setActionLoading(false); }
   };
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'symptoms', label: 'Symptoms & Suggestions' },
-    { key: 'diagnosis', label: 'Diagnosis' },
-    { key: 'prescription', label: 'Prescription' },
-    { key: 'referral', label: 'Referral' },
+    { key: 'overview', label: t('workspace.tabs.overview') },
+    { key: 'symptoms', label: t('workspace.tabs.symptomsSuggestions') },
+    { key: 'diagnosis', label: t('workspace.tabs.diagnosis') },
+    { key: 'prescription', label: t('workspace.tabs.prescription') },
+    { key: 'referral', label: t('workspace.tabs.referral') },
   ];
 
-  if (loading) return <div className="flex items-center justify-center py-20 text-slate-400">Loading…</div>;
+  if (loading) return <div className="flex items-center justify-center py-20 text-slate-400">{t('common.loading')}</div>;
   if (error || !consultation) {
     return (
       <div className="text-center py-20">
-        <p className="text-red-600">{error || 'Not found.'}</p>
-        <button className="btn-secondary mt-4" onClick={() => navigate('/doctor/consultations')}>Back</button>
+        <p className="text-red-600">{error || t('workspace.notFound')}</p>
+        <button className="btn-secondary mt-4" onClick={() => navigate('/doctor/consultations')}>{t('common.back')}</button>
       </div>
     );
   }
@@ -837,9 +868,9 @@ export default function ConsultationWorkspacePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <button className="btn-secondary text-xs" onClick={() => navigate('/doctor/consultations')}>← Back</button>
+        <button className="btn-secondary text-xs" onClick={() => navigate('/doctor/consultations')}>← {t('common.back')}</button>
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Consultation Workspace</h1>
+          <h1 className="text-xl font-bold text-slate-900">{t('workspace.consultationWorkspace')}</h1>
           <p className="text-slate-500 text-sm">
             {new Date(consultation.scheduledAt).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })}
           </p>

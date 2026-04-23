@@ -1,23 +1,28 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
 import { logout as logoutApi } from '../api/authApi';
-
-const patientLinks = [
-  { to: '/patient/dashboard', label: 'Dashboard' },
-  { to: '/patient/consultations', label: 'My Consultations' },
-  { to: '/patient/record', label: 'Medical Record' },
-  { to: '/patient/permissions', label: 'Data Permissions' },
-];
-
-const doctorLinks = [
-  { to: '/doctor/dashboard', label: 'Dashboard' },
-  { to: '/doctor/consultations', label: 'Consultations' },
-  { to: '/doctor/schedule', label: 'My Schedule' },
-];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { role, refreshToken, logout } = useAuthStore();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+
+  const toggleLanguage = () => i18n.changeLanguage(i18n.language === 'en' ? 'ro' : 'en');
+
+  const patientLinks = [
+    { to: '/patient/dashboard', label: t('nav.dashboard') },
+    { to: '/patient/consultations', label: t('nav.myConsultations') },
+    { to: '/patient/record', label: t('nav.medicalRecord') },
+    { to: '/patient/permissions', label: t('nav.dataPermissions') },
+  ];
+
+  const doctorLinks = [
+    { to: '/doctor/dashboard', label: t('nav.dashboard') },
+    { to: '/doctor/consultations', label: t('nav.consultations') },
+    { to: '/doctor/patients', label: t('nav.myPatients') },
+    { to: '/doctor/schedule', label: t('nav.mySchedule') },
+  ];
 
   const links = role === 'PATIENT' ? patientLinks : role === 'DOCTOR' ? doctorLinks : [];
 
@@ -78,6 +83,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Right side */}
             <div className="flex items-center gap-3">
+              <button
+                onClick={toggleLanguage}
+                className="text-xs font-semibold px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                {i18n.language === 'en' ? 'RO' : 'EN'}
+              </button>
               {role && (
                 <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   {role}
@@ -87,7 +98,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 onClick={handleSignOut}
                 className="text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
               >
-                Sign out
+                {t('nav.signOut')}
               </button>
             </div>
           </div>

@@ -49,6 +49,20 @@ export const getDoctorPendingConsultations = async (doctorId: string): Promise<C
   return response.data.data;
 };
 
+export const getDoctorAllConsultations = async (doctorId: string): Promise<ConsultationResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<ConsultationResponse[]>>(
+    `/api/consultations/doctor/${doctorId}/all`
+  );
+  return response.data.data;
+};
+
+export const getPatientConsultations = async (patientId: string): Promise<ConsultationResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<ConsultationResponse[]>>(
+    `/api/consultations/patient/${patientId}`
+  );
+  return response.data.data;
+};
+
 // ─── Status transitions ───────────────────────────────────────────────────────
 
 export const confirmConsultation = async (id: string): Promise<ConsultationResponse> => {
@@ -99,6 +113,13 @@ export const addPrescription = async (id: string, data: PrescriptionRequest): Pr
 
 export const addReferral = async (id: string, data: ReferralRequest): Promise<ReferralResponse> => {
   const response = await axiosInstance.post<ApiSuccess<ReferralResponse>>(`/api/consultations/${id}/referral`, data);
+  return response.data.data;
+};
+
+export const getDoctorPatientConsultations = async (doctorId: string, patientId: string): Promise<ConsultationResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<ConsultationResponse[]>>(
+    `/api/consultations/doctor/${doctorId}/patient/${patientId}`
+  );
   return response.data.data;
 };
 

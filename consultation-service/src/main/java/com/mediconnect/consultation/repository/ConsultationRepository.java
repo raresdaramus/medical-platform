@@ -17,4 +17,6 @@ public interface ConsultationRepository extends JpaRepository<Consultation, UUID
     @Query("SELECT c FROM Consultation c WHERE c.doctorId = :doctorId AND c.scheduledAt = :scheduledAt AND c.status IN ('PENDING','CONFIRMED')")
     List<Consultation> findByDoctorIdAndScheduledAtWithLock(@Param("doctorId") UUID doctorId, @Param("scheduledAt") LocalDateTime scheduledAt);
     List<Consultation> findByPatientId(UUID patientId);
+    List<Consultation> findByDoctorId(UUID doctorId);
+    List<Consultation> findByDoctorIdAndPatientId(UUID doctorId, UUID patientId);
 }
