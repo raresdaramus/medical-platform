@@ -253,6 +253,7 @@ export interface DiagnosisResponse {
 
 export interface PrescriptionItem {
   medicationId?: string;
+  medicationName?: string;
   dosage: string;
   frequency: string;
   durationDays: number;
@@ -260,7 +261,7 @@ export interface PrescriptionItem {
 }
 
 export interface PrescriptionRequest {
-  diagnosisId: string;
+  diagnosisId?: string;
   treatmentId?: string;
   customInstructions: string;
   validFrom: string;

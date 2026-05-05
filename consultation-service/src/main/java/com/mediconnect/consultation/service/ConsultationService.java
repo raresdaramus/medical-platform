@@ -158,7 +158,7 @@ public class ConsultationService {
 
         if (req.bodyZoneSymptoms() != null && !req.bodyZoneSymptoms().isBlank()) {
             for (String name : req.bodyZoneSymptoms().split(",")) {
-                ontologySymptomRepository.findByNameIgnoreCase(name.trim()).ifPresent(sym -> {
+                ontologySymptomRepository.findFirstByNameIgnoreCase(name.trim()).ifPresent(sym -> {
                     if (!symptomRepository.existsByConsultationIdAndSymptomId(consultationId, sym.getId())) {
                         ConsultationSymptom cs = new ConsultationSymptom();
                         cs.setConsultationId(consultationId);
@@ -173,7 +173,7 @@ public class ConsultationService {
 
         if (req.generalSymptoms() != null && !req.generalSymptoms().isBlank()) {
             for (String name : req.generalSymptoms().split(",")) {
-                ontologySymptomRepository.findByNameIgnoreCase(name.trim()).ifPresent(sym -> {
+                ontologySymptomRepository.findFirstByNameIgnoreCase(name.trim()).ifPresent(sym -> {
                     if (!symptomRepository.existsByConsultationIdAndSymptomId(consultationId, sym.getId())) {
                         ConsultationSymptom cs = new ConsultationSymptom();
                         cs.setConsultationId(consultationId);
@@ -225,7 +225,7 @@ public class ConsultationService {
         List<PrescriptionResponse> prescriptions = prescriptionRepository.findByConsultationId(consultationId).stream()
             .map(p -> {
                 List<PrescriptionItemResponse> items = prescriptionItemRepository.findByPrescriptionId(p.getId()).stream()
-                    .map(i -> new PrescriptionItemResponse(i.getId(), i.getMedicationId(), i.getDosage(), i.getFrequency(), i.getDurationDays(), i.getQuantity()))
+                    .map(i -> new PrescriptionItemResponse(i.getId(), i.getMedicationId(), i.getMedicationName(), i.getDosage(), i.getFrequency(), i.getDurationDays(), i.getQuantity()))
                     .collect(Collectors.toList());
                 return new PrescriptionResponse(p.getId(), p.getConsultationId(), p.getDiagnosisId(), p.getCustomInstructions(), p.getValidFrom(), p.getValidUntil(), p.getIssuedAt(), items);
             })
@@ -286,12 +286,13 @@ public class ConsultationService {
                 PrescriptionItem pi = new PrescriptionItem();
                 pi.setPrescriptionId(prescriptionId);
                 pi.setMedicationId(item.medicationId());
+                pi.setMedicationName(item.medicationName());
                 pi.setDosage(item.dosage());
                 pi.setFrequency(item.frequency());
                 pi.setDurationDays(item.durationDays());
                 pi.setQuantity(item.quantity());
                 pi = prescriptionItemRepository.save(pi);
-                savedItems.add(new PrescriptionItemResponse(pi.getId(), pi.getMedicationId(), pi.getDosage(), pi.getFrequency(), pi.getDurationDays(), pi.getQuantity()));
+                savedItems.add(new PrescriptionItemResponse(pi.getId(), pi.getMedicationId(), pi.getMedicationName(), pi.getDosage(), pi.getFrequency(), pi.getDurationDays(), pi.getQuantity()));
             }
         }
         return new PrescriptionResponse(prescription.getId(), prescription.getConsultationId(),

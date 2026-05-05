@@ -589,7 +589,7 @@ export default function ConsultationDetailPage() {
                         className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 border-b border-slate-100 last:border-0"
                         onClick={() => addSymptom(s)}
                       >
-                        {s.name}
+                        {t('symptomName.' + s.name, { defaultValue: s.name })}
                       </button>
                     ))}
                   </div>
@@ -598,7 +598,7 @@ export default function ConsultationDetailPage() {
                   <div className="mt-3 space-y-2">
                     {selectedSymptoms.map((s) => (
                       <div key={s.id} className="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2">
-                        <span className="text-sm font-medium text-slate-700 flex-1">{s.name}</span>
+                        <span className="text-sm font-medium text-slate-700 flex-1">{t('symptomName.' + s.name, { defaultValue: s.name })}</span>
                         <select
                           className="input-field w-28 py-1 text-xs"
                           value={s.severity}

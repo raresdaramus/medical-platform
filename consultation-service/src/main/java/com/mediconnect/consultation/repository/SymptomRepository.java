@@ -5,6 +5,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 public interface SymptomRepository extends JpaRepository<Symptom, UUID> {
-    List<Symptom> findByNameContainingIgnoreCase(String name);
-    Optional<Symptom> findByNameIgnoreCase(String name);
+    List<Symptom> findByNameContainingIgnoreCaseOrNameRoContainingIgnoreCase(String name, String nameRo);
+    Optional<Symptom> findFirstByNameIgnoreCase(String name);
 }

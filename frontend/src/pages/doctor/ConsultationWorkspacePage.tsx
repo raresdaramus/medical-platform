@@ -504,11 +504,11 @@ function PrescriptionTab({
     setFormError('');
 
     const payload: PrescriptionRequest = {
-      diagnosisId,
+      diagnosisId: diagnosisId || undefined,
       customInstructions,
       validFrom,
       validUntil,
-      items: items.map(({ medName: _medName, ...rest }) => rest),
+      items: items.map(({ medName, ...rest }) => ({ ...rest, medicationName: medName })),
     };
 
     try {

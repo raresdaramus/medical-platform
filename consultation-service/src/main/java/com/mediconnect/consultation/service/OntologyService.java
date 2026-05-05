@@ -29,7 +29,7 @@ public class OntologyService {
     }
 
     public List<SymptomResponse> searchSymptoms(String term) {
-        return symptomRepository.findByNameContainingIgnoreCase(term).stream()
+        return symptomRepository.findByNameContainingIgnoreCaseOrNameRoContainingIgnoreCase(term, term).stream()
             .map(s -> new SymptomResponse(s.getId(), s.getName(), s.getCode(), s.getBodySystem()))
             .collect(Collectors.toList());
     }
