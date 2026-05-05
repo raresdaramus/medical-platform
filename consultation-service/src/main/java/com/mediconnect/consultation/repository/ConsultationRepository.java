@@ -19,4 +19,5 @@ public interface ConsultationRepository extends JpaRepository<Consultation, UUID
     List<Consultation> findByPatientId(UUID patientId);
     List<Consultation> findByDoctorId(UUID doctorId);
     List<Consultation> findByDoctorIdAndPatientId(UUID doctorId, UUID patientId);
+    java.util.Optional<Consultation> findByNextConsultationId(UUID nextConsultationId);
 }

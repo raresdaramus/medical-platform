@@ -63,10 +63,12 @@ public class SchedulingService {
 
     @Transactional
     public ConsultationResponse bookConsultation(UUID patientId, CreateConsultationRequest req) {
-        List<Consultation> existing = consultationRepository.findByDoctorIdAndScheduledAtWithLock(
-            req.doctorId(), req.scheduledAt());
-        if (!existing.isEmpty()) {
-            throw new IllegalStateException("This time slot is already booked");
+        if (req.scheduledAt() != null) {
+            List<Consultation> existing = consultationRepository.findByDoctorIdAndScheduledAtWithLock(
+                req.doctorId(), req.scheduledAt());
+            if (!existing.isEmpty()) {
+                throw new IllegalStateException("This time slot is already booked");
+            }
         }
 
         Consultation consultation = new Consultation();
@@ -93,11 +95,13 @@ public class SchedulingService {
 
     public ConsultationResponse toConsultationResponse(Consultation c) {
         return new ConsultationResponse(c.getId(), c.getDoctorId(), c.getPatientId(), null, null, c.getStatus(),
-            c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(), c.getCreatedAt());
+            c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(), c.getCreatedAt(),
+            c.getNextConsultationId());
     }
 
     public ConsultationResponse toConsultationResponse(Consultation c, String patientName, String doctorName) {
         return new ConsultationResponse(c.getId(), c.getDoctorId(), c.getPatientId(), patientName, doctorName, c.getStatus(),
-            c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(), c.getCreatedAt());
+            c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(), c.getCreatedAt(),
+            c.getNextConsultationId());
     }
 }

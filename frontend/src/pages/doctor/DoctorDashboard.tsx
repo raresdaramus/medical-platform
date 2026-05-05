@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
-import { getDoctor } from '../../api/userApi';
+import { getDoctor, getIncomingFamilyDoctorRequests, respondToFamilyDoctorRequest } from '../../api/userApi';
 import { getDoctorAllConsultations, confirmConsultation, cancelConsultation } from '../../api/consultationApi';
-import type { ConsultationResponse, DoctorResponse } from '../../types';
+import type { ConsultationResponse, DoctorResponse, FamilyDoctorRequestResponse } from '../../types';
 import DoctorChartsSection from './DoctorChartsSection';
 
 export default function DoctorDashboard() {
@@ -14,6 +14,7 @@ export default function DoctorDashboard() {
 
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null);
   const [consultations, setConsultations] = useState<ConsultationResponse[]>([]);
+  const [enrollmentRequests, setEnrollmentRequests] = useState<FamilyDoctorRequestResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -21,12 +22,14 @@ export default function DoctorDashboard() {
   const load = async () => {
     if (!profileId) return;
     try {
-      const [d, c] = await Promise.allSettled([
+      const [d, c, reqs] = await Promise.allSettled([
         getDoctor(profileId),
         getDoctorAllConsultations(profileId),
+        getIncomingFamilyDoctorRequests(),
       ]);
       if (d.status === 'fulfilled') setDoctor(d.value);
       if (c.status === 'fulfilled') setConsultations(c.value);
+      if (reqs.status === 'fulfilled') setEnrollmentRequests(reqs.value);
     } catch {
       setError(t('doctorDashboard.failedLoad'));
     } finally {
@@ -61,6 +64,18 @@ export default function DoctorDashboard() {
     }
   };
 
+  const handleEnrollmentResponse = async (requestId: string, accept: boolean) => {
+    setActionLoading(requestId + (accept ? '-accept' : '-reject'));
+    try {
+      await respondToFamilyDoctorRequest(requestId, accept);
+      setEnrollmentRequests(prev => prev.filter(r => r.id !== requestId));
+    } catch {
+      setError(t('familyDoctor.failedRespond'));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const pending = consultations.filter((c) => c.status === 'PENDING');
   const confirmed = consultations.filter((c) => c.status === 'CONFIRMED' || c.status === 'IN_PROGRESS');
 
@@ -89,7 +104,7 @@ export default function DoctorDashboard() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="card card-body">
           <div className="text-sm font-medium text-slate-500">{t('doctorDashboard.pendingRequests')}</div>
           <div className="text-3xl font-bold text-yellow-600 mt-1">{pending.length}</div>
@@ -102,10 +117,55 @@ export default function DoctorDashboard() {
           <div className="text-sm font-medium text-slate-500">{t('doctorDashboard.totalActive')}</div>
           <div className="text-3xl font-bold text-slate-900 mt-1">{consultations.length}</div>
         </div>
+        <div className="card card-body">
+          <div className="text-sm font-medium text-slate-500">{t('familyDoctor.enrollmentRequests')}</div>
+          <div className="text-3xl font-bold text-green-600 mt-1">{enrollmentRequests.length}</div>
+        </div>
       </div>
 
       {/* Charts */}
       <DoctorChartsSection consultations={consultations} />
+
+      {/* Enrollment requests */}
+      {enrollmentRequests.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h2 className="font-semibold text-slate-900">{t('familyDoctor.pendingEnrollmentTitle')}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{t('familyDoctor.pendingEnrollmentSubtitle')}</p>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {enrollmentRequests.map((r) => (
+              <div key={r.id} className="px-6 py-4 flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-slate-800 text-sm">{r.patientName}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {new Date(r.requestedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                  </div>
+                  {r.message && (
+                    <div className="text-xs text-slate-600 mt-1 italic">"{r.message}"</div>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    className="btn-success text-xs py-1.5 px-3"
+                    disabled={actionLoading === r.id + '-accept'}
+                    onClick={() => handleEnrollmentResponse(r.id, true)}
+                  >
+                    {actionLoading === r.id + '-accept' ? '…' : t('familyDoctor.accept')}
+                  </button>
+                  <button
+                    className="btn-danger text-xs py-1.5 px-3"
+                    disabled={actionLoading === r.id + '-reject'}
+                    onClick={() => handleEnrollmentResponse(r.id, false)}
+                  >
+                    {actionLoading === r.id + '-reject' ? '…' : t('familyDoctor.reject')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Pending consultations */}
       {pending.length > 0 && (
@@ -125,7 +185,7 @@ export default function DoctorDashboard() {
                     {c.patientName ?? `Patient ${c.patientId.slice(0, 8)}…`}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    {new Date(c.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                    {c.scheduledAt ? new Date(c.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Telemedicine'}
                     {' · '}
                     {c.consultationType.replace('_', ' ')}
                   </div>
@@ -170,13 +230,11 @@ export default function DoctorDashboard() {
                     {c.patientName ?? `Patient ${c.patientId.slice(0, 8)}…`}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    {new Date(c.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                    {c.scheduledAt ? new Date(c.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Telemedicine'}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span
-                    className={c.status === 'IN_PROGRESS' ? 'badge-green' : 'badge-blue'}
-                  >
+                  <span className={c.status === 'IN_PROGRESS' ? 'badge-green' : 'badge-blue'}>
                     {c.status === 'IN_PROGRESS' ? t('doctorDashboard.inProgress') : t('status.CONFIRMED')}
                   </span>
                   <span className="text-blue-600 text-xs font-medium">{t('common.open')}</span>
@@ -187,7 +245,7 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {consultations.length === 0 && (
+      {consultations.length === 0 && enrollmentRequests.length === 0 && (
         <div className="card card-body text-center py-12">
           <p className="text-slate-500">{t('doctorDashboard.noConsultations')}</p>
         </div>

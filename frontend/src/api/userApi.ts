@@ -9,6 +9,8 @@ import type {
   AssignDoctorRequest,
   PermissionResponse,
   CreatePermissionRequest,
+  FamilyDoctorRequestResponse,
+  SendFamilyDoctorRequestRequest,
   ApiSuccess,
 } from '../types';
 
@@ -113,4 +115,45 @@ export const createPermission = async (
 
 export const deletePermission = async (patientId: string, permissionId: string): Promise<void> => {
   await axiosInstance.delete(`/api/users/patients/${patientId}/permissions/${permissionId}`);
+};
+
+// ─── Family Doctor Request endpoints ─────────────────────────────────────────
+
+export const sendFamilyDoctorRequest = async (
+  data: SendFamilyDoctorRequestRequest
+): Promise<FamilyDoctorRequestResponse> => {
+  const response = await axiosInstance.post<ApiSuccess<FamilyDoctorRequestResponse>>(
+    '/api/users/family-doctor-requests',
+    data
+  );
+  return response.data.data;
+};
+
+export const getMyFamilyDoctorRequests = async (): Promise<FamilyDoctorRequestResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<FamilyDoctorRequestResponse[]>>(
+    '/api/users/family-doctor-requests/mine'
+  );
+  return response.data.data;
+};
+
+export const cancelFamilyDoctorRequest = async (requestId: string): Promise<void> => {
+  await axiosInstance.delete(`/api/users/family-doctor-requests/${requestId}`);
+};
+
+export const getIncomingFamilyDoctorRequests = async (): Promise<FamilyDoctorRequestResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<FamilyDoctorRequestResponse[]>>(
+    '/api/users/family-doctor-requests/incoming'
+  );
+  return response.data.data;
+};
+
+export const respondToFamilyDoctorRequest = async (
+  requestId: string,
+  accept: boolean
+): Promise<FamilyDoctorRequestResponse> => {
+  const response = await axiosInstance.put<ApiSuccess<FamilyDoctorRequestResponse>>(
+    `/api/users/family-doctor-requests/${requestId}/respond`,
+    { accept }
+  );
+  return response.data.data;
 };

@@ -21,7 +21,9 @@
     "view": "View →",
     "open": "Open →",
     "min": "min",
-    "confidence": "Confidence"
+    "confidence": "Confidence",
+    "all": "All",
+    "clearFilters": "Clear filters"
   },
   "status": {
     "PENDING": "Pending",
@@ -98,7 +100,9 @@
     "completeProfileSub": "Your account exists but you need to fill in your medical profile first.",
     "createProfile": "Create patient profile",
     "creatingProfile": "Creating profile…",
-    "failedCreate": "Failed to create profile."
+    "failedCreate": "Failed to create profile.",
+    "upcomingConsultations": "Upcoming consultations",
+    "viewAll": "View all →"
   },
   "doctorDashboard": {
     "welcome": "Welcome, Dr. {{name}}!",
@@ -135,7 +139,16 @@
     "managingConsultations": "Manage your patient consultations.",
     "consultationsNote": "Showing active and recent consultations. Completed and cancelled consultations may not appear.",
     "all": "All",
-    "failedLoad": "Failed to load consultations."
+    "noMatch": "No consultations match the selected filters.",
+    "result": "result",
+    "results": "results",
+    "failedLoad": "Failed to load consultations.",
+    "filterByPatient": "Filter by patient name…",
+    "async": "Telemedicine (async)",
+    "series": "Series",
+    "partOfSeries": "Part of a consultation series",
+    "previousConsultation": "Previous",
+    "nextConsultation": "Next"
   },
   "patients": {
     "myPatients": "My Patients",
@@ -162,6 +175,7 @@
   "workspace": {
     "tabs": {
       "overview": "Overview",
+      "intake": "Intake Form",
       "symptoms": "Symptoms",
       "symptomsSuggestions": "Symptoms & Suggestions",
       "diagnosis": "Diagnosis",
@@ -263,7 +277,32 @@
     "selectDiseaseOrCustom": "Select a disease or enter a custom diagnosis.",
     "destinationRequired": "Destination is required.",
     "reasonRequired": "Reason is required.",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "fillIntakeDoctor": "Fill Anamnesis (on behalf of patient)",
+    "fillIntakeDoctorSub": "Fill in the patient's information as reported during the consultation.",
+    "saveIntake": "Save anamnesis",
+    "intakeNotFilled": "Anamnesis not filled for this consultation.",
+    "consultationSeries": "Consultation Series",
+    "linkToNext": "Link to follow-up",
+    "link": "Link",
+    "removeLink": "Remove link",
+    "nextConsultation": "Next consultation",
+    "previousConsultation": "Previous consultation",
+    "firstInSeries": "First in series",
+    "lastInSeries": "Last in series",
+    "nextConsultationIdPlaceholder": "Follow-up consultation ID (UUID)…",
+    "linkHint": "Paste the ID of the follow-up consultation to link them.",
+    "linkFailed": "Failed to link consultations.",
+    "followUp": {
+      "needsFollowUp": "Patient needs a follow-up consultation",
+      "scheduleTitle": "Schedule follow-up consultation",
+      "scheduleDate": "Follow-up date",
+      "scheduleTime": "Select time slot",
+      "loadingSlots": "Loading available slots…",
+      "noSlots": "No slots available on this date.",
+      "selectedSlot": "Selected slot",
+      "completeAndSchedule": "Complete & Schedule Follow-up"
+    }
   },
   "booking": {
     "title": "Book a Consultation",
@@ -286,6 +325,10 @@
     "nextSlot": "Next: Pick a slot",
     "dateLabel": "Date",
     "telemedicine": "Telemedicine",
+    "telemedicineDesc": "Async — no appointment needed",
+    "inPersonDesc": "Face-to-face appointment",
+    "telemedicineNote": "A telemedicine request will be sent to the doctor. They will respond when available — no date or time slot is needed.",
+    "bookTelemedicine": "Send telemedicine request",
     "selected": "Selected:",
     "confirmBooking": "Confirm booking",
     "noSlots": "No available slots for this date.",
@@ -312,6 +355,7 @@
     "doctorNote": "Doctor's note",
     "confirmed": "Your consultation is confirmed. Please complete the intake form before your appointment.",
     "fillForm": "Complete the intake form",
+    "inPersonDoctorFills": "Your doctor will fill in the anamnesis form during your face-to-face consultation.",
     "intakeFormTitle": "Medical Intake Form",
     "intakeFormSubtitle": "Fields marked with * are required. The rest are optional.",
     "vitals": "Vital Signs (optional)",
@@ -535,6 +579,31 @@
     "editRecords": "Edit Records",
     "fullAccess": "Full Access"
   },
+  "familyDoctor": {
+    "requestTitle": "Find a family doctor",
+    "requestSubtitle": "Search and send a request to your preferred family doctor.",
+    "searchPlaceholder": "Search doctor by name…",
+    "searching": "Searching…",
+    "noDoctors": "No doctors found.",
+    "messageLabel": "Message (optional)",
+    "messagePlaceholder": "Add a short message for the doctor…",
+    "sendRequest": "Send request",
+    "sending": "Sending…",
+    "pendingRequest": "Pending request",
+    "pendingRequestTo": "Your request to Dr. {{name}} is pending.",
+    "yourMessage": "Your message",
+    "cancelRequest": "Cancel request",
+    "previousRequests": "Previous requests",
+    "status_ACCEPTED": "Accepted",
+    "status_REJECTED": "Rejected",
+    "failedSend": "Failed to send request.",
+    "enrollmentRequests": "Enrollment requests",
+    "pendingEnrollmentTitle": "Pending enrollment requests",
+    "pendingEnrollmentSubtitle": "Patients requesting you as their family doctor.",
+    "accept": "Accept",
+    "reject": "Reject",
+    "failedRespond": "Failed to respond to request."
+  },
   "medicalRecord": {
     "title": "Medical Record",
     "subtitle": "Your complete medical history.",
@@ -546,6 +615,10 @@
     "intake": "Patient Intake",
     "diagnosis": "Diagnosis",
     "prescription": "Prescription",
-    "referral": "Referral"
+    "referral": "Referral",
+    "searchPlaceholder": "Search by summary or doctor…",
+    "noMatch": "No entries match the selected filter.",
+    "result": "entry",
+    "results": "entries"
   }
 }

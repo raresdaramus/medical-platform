@@ -33,6 +33,7 @@ export default function DoctorConsultationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState<ConsultationStatus | 'ALL'>('ALL');
+  const [patientSearch, setPatientSearch] = useState('');
 
   useEffect(() => {
     if (!profileId) return;
@@ -44,10 +45,17 @@ export default function DoctorConsultationsPage() {
 
   const filtered = consultations
     .filter((c) => filterStatus === 'ALL' || c.status === filterStatus)
+    .filter((c) => {
+      if (!patientSearch.trim()) return true;
+      const name = (c.patientName ?? '').toLowerCase();
+      return name.includes(patientSearch.trim().toLowerCase());
+    })
     .sort((a, b) => {
       const orderDiff = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
       if (orderDiff !== 0) return orderDiff;
-      return a.scheduledAt.localeCompare(b.scheduledAt);
+      const aSched = a.scheduledAt ?? '';
+      const bSched = b.scheduledAt ?? '';
+      return aSched.localeCompare(bSched);
     });
 
   const statusCounts = consultations.reduce<Record<string, number>>((acc, c) => {
@@ -64,36 +72,47 @@ export default function DoctorConsultationsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">{t('consultations.myConsultations')}</h1>
         <p className="text-slate-500 mt-1">{t('consultations.managingConsultations')}</p>
-        <p className="text-xs text-slate-400 mt-1">{t('consultations.consultationsNote')}</p>
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 flex-wrap">
-        {(['ALL', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const).map((s) => {
-          const count = s === 'ALL' ? consultations.length : (statusCounts[s] ?? 0);
-          return (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                filterStatus === s
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {s === 'ALL' ? t('consultations.all') : t('status.' + s)}
-              {count > 0 && (
-                <span className={`ml-1.5 text-xs ${filterStatus === s ? 'text-blue-200' : 'text-slate-400'}`}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      {/* Filters row */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        {/* Patient name search */}
+        <input
+          type="text"
+          className="input-field sm:w-64"
+          placeholder={t('consultations.filterByPatient')}
+          value={patientSearch}
+          onChange={(e) => setPatientSearch(e.target.value)}
+        />
+
+        {/* Status tabs */}
+        <div className="flex gap-1 flex-wrap">
+          {(['ALL', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const).map((s) => {
+            const count = s === 'ALL' ? consultations.length : (statusCounts[s] ?? 0);
+            return (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  filterStatus === s
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {s === 'ALL' ? t('consultations.all') : t('status.' + s)}
+                {count > 0 && (
+                  <span className={`ml-1.5 text-xs ${filterStatus === s ? 'text-blue-200' : 'text-slate-400'}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -122,17 +141,24 @@ export default function DoctorConsultationsPage() {
                 >
                   <td className="px-6 py-4 font-medium text-slate-800">
                     {c.patientName ?? `Patient ${c.patientId.slice(0, 8)}…`}
+                    {c.nextConsultationId && (
+                      <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                        {t('consultations.series')}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-slate-600">
-                    {new Date(c.scheduledAt).toLocaleString([], {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
+                    {c.scheduledAt
+                      ? new Date(c.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+                      : <span className="text-slate-400 italic">{t('consultations.async')}</span>
+                    }
                   </td>
                   <td className="px-6 py-4 text-slate-600 capitalize">
                     {c.consultationType.replace('_', ' ').toLowerCase()}
                   </td>
-                  <td className="px-6 py-4 text-slate-600">{c.slotDurationMinutes} {t('common.min')}</td>
+                  <td className="px-6 py-4 text-slate-600">
+                    {c.scheduledAt ? `${c.slotDurationMinutes} ${t('common.min')}` : '—'}
+                  </td>
                   <td className="px-6 py-4">{statusBadge(c.status, t)}</td>
                   <td className="px-6 py-4">
                     <span className="text-blue-600 text-xs font-medium">{t('common.open')}</span>

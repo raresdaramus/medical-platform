@@ -1,2 +1,7 @@
 package com.mediconnect.consultation.dto;
-public record CompleteConsultationRequest(String noteDoctor) {}
+import java.time.LocalDateTime;
+public record CompleteConsultationRequest(
+    String noteDoctor,
+    LocalDateTime followUpScheduledAt,
+    Integer followUpDurationMinutes
+) {}

@@ -15,6 +15,7 @@ public class Consultation {
     @Column(name = "slot_duration_minutes") private Integer slotDurationMinutes = 30;
     @Column(name = "notes_doctor", columnDefinition = "TEXT") private String notesDoctor;
     @Column(name = "created_at") private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "next_consultation_id") private UUID nextConsultationId;
     public Consultation() {}
     public UUID getId() { return id; } public void setId(UUID id) { this.id = id; }
     public UUID getDoctorId() { return doctorId; } public void setDoctorId(UUID doctorId) { this.doctorId = doctorId; }
@@ -27,4 +28,5 @@ public class Consultation {
     public Integer getSlotDurationMinutes() { return slotDurationMinutes; } public void setSlotDurationMinutes(Integer slotDurationMinutes) { this.slotDurationMinutes = slotDurationMinutes; }
     public String getNotesDoctor() { return notesDoctor; } public void setNotesDoctor(String notesDoctor) { this.notesDoctor = notesDoctor; }
     public LocalDateTime getCreatedAt() { return createdAt; } public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public UUID getNextConsultationId() { return nextConsultationId; } public void setNextConsultationId(UUID nextConsultationId) { this.nextConsultationId = nextConsultationId; }
 }

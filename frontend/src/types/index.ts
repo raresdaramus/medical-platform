@@ -123,6 +123,25 @@ export interface AssignDoctorRequest {
   doctorId: string;
 }
 
+export type FamilyDoctorRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+
+export interface FamilyDoctorRequestResponse {
+  id: string;
+  patientId: string;
+  patientName: string;
+  doctorId: string;
+  doctorName: string;
+  status: FamilyDoctorRequestStatus;
+  message: string | null;
+  requestedAt: string;
+  respondedAt: string | null;
+}
+
+export interface SendFamilyDoctorRequestRequest {
+  doctorId: string;
+  message?: string;
+}
+
 export type PermissionType = 'VIEW_RECORDS' | 'EDIT_RECORDS' | 'FULL_ACCESS';
 export type GranteeType = 'DOCTOR';
 
@@ -159,9 +178,9 @@ export interface SlotResponse {
 
 export interface CreateConsultationRequest {
   doctorId: string;
-  scheduledAt: string; // ISO datetime
+  scheduledAt?: string | null; // ISO datetime; null for TELEMEDICINE
   consultationType: ConsultationType;
-  slotDurationMinutes: number;
+  slotDurationMinutes?: number;
 }
 
 export interface ConsultationResponse {
@@ -170,11 +189,12 @@ export interface ConsultationResponse {
   doctorId: string;
   patientName?: string;
   doctorName?: string;
-  scheduledAt: string;
+  scheduledAt: string | null;
   consultationType: ConsultationType;
   status: ConsultationStatus;
   slotDurationMinutes: number;
   createdAt: string;
+  nextConsultationId?: string | null;
 }
 
 export interface SymptomEntry {
@@ -312,10 +332,13 @@ export interface FullConsultationResponse extends ConsultationResponse {
   prescriptions: PrescriptionResponse[];
   referrals: ReferralResponse[];
   noteDoctor?: string;
+  previousConsultationId?: string | null;
 }
 
 export interface CompleteConsultationRequest {
   noteDoctor: string;
+  followUpScheduledAt?: string | null;
+  followUpDurationMinutes?: number;
 }
 
 // ─── Ontology ─────────────────────────────────────────────────────────────────

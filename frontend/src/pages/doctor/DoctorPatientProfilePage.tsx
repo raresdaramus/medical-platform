@@ -36,7 +36,7 @@ export default function DoctorPatientProfilePage() {
     ])
       .then(([p, c]) => {
         setPatient(p);
-        setConsultations(c.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)));
+        setConsultations(c.sort((a, b) => (b.scheduledAt ?? '').localeCompare(a.scheduledAt ?? '')));
       })
       .catch(() => setError(t('patients.failedLoadPatient')))
       .finally(() => setLoading(false));
@@ -134,10 +134,9 @@ export default function DoctorPatientProfilePage() {
                     onClick={() => navigate(`/doctor/consultations/${c.id}`)}
                   >
                     <td className="px-6 py-4 text-slate-800">
-                      {new Date(c.scheduledAt).toLocaleString([], {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
+                      {c.scheduledAt
+                        ? new Date(c.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+                        : <span className="italic text-slate-400">Telemedicine</span>}
                     </td>
                     <td className="px-6 py-4 text-slate-600 capitalize">
                       {c.consultationType.replace('_', ' ').toLowerCase()}

@@ -115,9 +115,15 @@ public class ConsultationService {
         return schedulingService.toConsultationResponse(consultationRepository.save(c));
     }
 
-    public void submitIntake(UUID consultationId, UUID patientId, IntakeFormRequest req) {
+    public void submitIntake(UUID consultationId, UUID requesterId, String role, IntakeFormRequest req) {
         Consultation c = getConsultationById(consultationId);
-        if (!c.getPatientId().equals(patientId)) throw new UnauthorizedException("Not authorized to submit intake for this consultation");
+        if ("DOCTOR".equals(role)) {
+            UUID doctorProfileId = resolveDoctorProfileId(requesterId);
+            if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized to submit intake for this consultation");
+        } else {
+            if (!c.getPatientId().equals(requesterId)) throw new UnauthorizedException("Not authorized to submit intake for this consultation");
+        }
+        final String reportedBy = "DOCTOR".equals(role) ? "DOCTOR" : "PATIENT";
 
         PatientIntakeForm form = new PatientIntakeForm();
         form.setConsultationId(consultationId);
@@ -149,7 +155,7 @@ public class ConsultationService {
                 cs.setCustomSymptomText(entry.customText());
                 cs.setSeverity(entry.severity());
                 cs.setOnsetDate(entry.onsetDate());
-                cs.setReportedBy("PATIENT");
+                cs.setReportedBy(reportedBy);
                 symptomRepository.save(cs);
             }
         }
@@ -164,7 +170,7 @@ public class ConsultationService {
                         cs.setConsultationId(consultationId);
                         cs.setSymptomId(sym.getId());
                         cs.setSeverity(defaultSeverity);
-                        cs.setReportedBy("PATIENT");
+                        cs.setReportedBy(reportedBy);
                         symptomRepository.save(cs);
                     }
                 });
@@ -179,12 +185,29 @@ public class ConsultationService {
                         cs.setConsultationId(consultationId);
                         cs.setSymptomId(sym.getId());
                         cs.setSeverity(defaultSeverity);
-                        cs.setReportedBy("PATIENT");
+                        cs.setReportedBy(reportedBy);
                         symptomRepository.save(cs);
                     }
                 });
             }
         }
+    }
+
+    public ConsultationResponse linkNextConsultation(UUID consultationId, UUID nextConsultationId, UUID accountId) {
+        Consultation c = getConsultationById(consultationId);
+        UUID doctorProfileId = resolveDoctorProfileId(accountId);
+        if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized");
+        getConsultationById(nextConsultationId); // verify next exists
+        c.setNextConsultationId(nextConsultationId);
+        return schedulingService.toConsultationResponse(consultationRepository.save(c));
+    }
+
+    public ConsultationResponse unlinkNextConsultation(UUID consultationId, UUID accountId) {
+        Consultation c = getConsultationById(consultationId);
+        UUID doctorProfileId = resolveDoctorProfileId(accountId);
+        if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized");
+        c.setNextConsultationId(null);
+        return schedulingService.toConsultationResponse(consultationRepository.save(c));
     }
 
     private String defaultSeverity(String painIntensity) {
@@ -219,7 +242,7 @@ public class ConsultationService {
             .orElse(null);
 
         List<DiagnosisResponse> diagnoses = diagnosisRepository.findByConsultationId(consultationId).stream()
-            .map(d -> new DiagnosisResponse(d.getId(), d.getConsultationId(), d.getDiseaseId(), d.getCustomDiagnosis(), d.getIcd10Code(), d.getConfidence(), d.getDiagnosisDate(), d.getNotes()))
+            .map(d -> new DiagnosisResponse(d.getId(), d.getConsultationId(), d.getDiseaseId(), d.getCustomDiagnosis(), d.getIcd10Code(), parseConfidence(d.getConfidence()), d.getDiagnosisDate(), d.getNotes()))
             .collect(Collectors.toList());
 
         List<PrescriptionResponse> prescriptions = prescriptionRepository.findByConsultationId(consultationId).stream()
@@ -235,9 +258,13 @@ public class ConsultationService {
             .map(r -> new ReferralResponse(r.getId(), r.getConsultationId(), r.getReferralType(), r.getDestination(), r.getReason(), r.getUrgency(), r.getIssuedAt()))
             .collect(Collectors.toList());
 
+        UUID previousConsultationId = consultationRepository.findByNextConsultationId(consultationId)
+            .map(Consultation::getId).orElse(null);
+
         return new FullConsultationResponse(c.getId(), c.getDoctorId(), c.getPatientId(), c.getStatus(),
             c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(),
-            c.getSlotDurationMinutes(), intakeFormDto, diagnoses, prescriptions, referrals);
+            c.getSlotDurationMinutes(), intakeFormDto, diagnoses, prescriptions, referrals, c.getNotesDoctor(),
+            c.getNextConsultationId(), previousConsultationId);
     }
 
     public ConsultationResponse startConsultation(UUID consultationId, UUID accountId) {
@@ -258,12 +285,12 @@ public class ConsultationService {
         diagnosis.setDiseaseId(req.diseaseId());
         diagnosis.setCustomDiagnosis(req.customDiagnosis());
         diagnosis.setIcd10Code(req.icd10Code());
-        diagnosis.setConfidence(req.confidence());
+        diagnosis.setConfidence(String.valueOf(req.confidence()));
         diagnosis.setDiagnosisDate(req.diagnosisDate());
         diagnosis.setNotes(req.notes());
         diagnosis = diagnosisRepository.save(diagnosis);
         return new DiagnosisResponse(diagnosis.getId(), diagnosis.getConsultationId(), diagnosis.getDiseaseId(),
-            diagnosis.getCustomDiagnosis(), diagnosis.getIcd10Code(), diagnosis.getConfidence(), diagnosis.getDiagnosisDate(), diagnosis.getNotes());
+            diagnosis.getCustomDiagnosis(), diagnosis.getIcd10Code(), parseConfidence(diagnosis.getConfidence()), diagnosis.getDiagnosisDate(), diagnosis.getNotes());
     }
 
     public PrescriptionResponse addPrescription(UUID consultationId, UUID accountId, PrescriptionRequest req) {
@@ -323,14 +350,70 @@ public class ConsultationService {
         c.setStatus("COMPLETED");
         c.setCompletedAt(LocalDateTime.now());
         c.setNotesDoctor(req.noteDoctor());
+
+        if (req.followUpScheduledAt() != null) {
+            Consultation followUp = new Consultation();
+            followUp.setDoctorId(c.getDoctorId());
+            followUp.setPatientId(c.getPatientId());
+            followUp.setConsultationType("IN_PERSON");
+            followUp.setScheduledAt(req.followUpScheduledAt());
+            followUp.setSlotDurationMinutes(req.followUpDurationMinutes() != null
+                ? req.followUpDurationMinutes() : c.getSlotDurationMinutes());
+            followUp.setStatus("CONFIRMED");
+            followUp.setCreatedAt(LocalDateTime.now());
+            followUp = consultationRepository.save(followUp);
+            c.setNextConsultationId(followUp.getId());
+        }
+
         return schedulingService.toConsultationResponse(consultationRepository.save(c));
     }
 
     @Transactional(readOnly = true)
     public List<MedicalRecordResponse> getMedicalRecord(UUID patientId, UUID requesterId, String role) {
-        return medicalRecordEntryRepository.findByPatientIdOrderByAddedAtDesc(patientId).stream()
-            .map(e -> new MedicalRecordResponse(e.getId(), e.getPatientId(), e.getConsultationId(), e.getEntryType(), e.getAddedAt()))
-            .collect(Collectors.toList());
+        List<Consultation> consultations = consultationRepository.findByPatientId(patientId);
+        List<MedicalRecordResponse> result = new java.util.ArrayList<>();
+
+        for (Consultation c : consultations) {
+            String doctorName = null;
+            try {
+                PatientInfoDto doc = userClient.getDoctorInfo(c.getDoctorId());
+                doctorName = doc.firstName() + " " + doc.lastName();
+            } catch (Exception ignored) {}
+            final String finalDoctorName = doctorName;
+
+            intakeFormRepository.findByConsultationId(c.getId()).ifPresent(f ->
+                result.add(new MedicalRecordResponse(f.getId(), patientId, c.getId(), "INTAKE",
+                    f.getSubmittedAt(), f.getChiefComplaint(), finalDoctorName, c.getScheduledAt(), c.getStatus()))
+            );
+
+            diagnosisRepository.findByConsultationId(c.getId()).forEach(d -> {
+                String summary = d.getCustomDiagnosis() != null ? d.getCustomDiagnosis() : d.getIcd10Code();
+                LocalDateTime addedAt = d.getDiagnosisDate() != null ? d.getDiagnosisDate().atStartOfDay() : c.getScheduledAt();
+                result.add(new MedicalRecordResponse(d.getId(), patientId, c.getId(), "DIAGNOSIS",
+                    addedAt, summary, finalDoctorName, c.getScheduledAt(), c.getStatus()));
+            });
+
+            prescriptionRepository.findByConsultationId(c.getId()).forEach(p ->
+                result.add(new MedicalRecordResponse(p.getId(), patientId, c.getId(), "PRESCRIPTION",
+                    p.getIssuedAt(), p.getCustomInstructions(), finalDoctorName, c.getScheduledAt(), c.getStatus()))
+            );
+
+            referralRepository.findByConsultationId(c.getId()).forEach(r ->
+                result.add(new MedicalRecordResponse(r.getId(), patientId, c.getId(), "REFERRAL",
+                    r.getIssuedAt(), r.getReferralType() + " → " + r.getDestination(), finalDoctorName, c.getScheduledAt(), c.getStatus()))
+            );
+        }
+
+        result.sort((a, b) -> {
+            if (b.addedAt() == null) return -1;
+            if (a.addedAt() == null) return 1;
+            return b.addedAt().compareTo(a.addedAt());
+        });
+        return result;
+    }
+
+    private double parseConfidence(String s) {
+        try { return s != null ? Double.parseDouble(s) : 0.0; } catch (Exception e) { return 0.0; }
     }
 
     private UUID resolveDoctorProfileId(UUID accountId) {

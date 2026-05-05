@@ -84,4 +84,52 @@ public class PatientController {
         patientService.revokePermission(patientId, permissionId, token.accountId());
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
+
+    // ─── Family Doctor Request endpoints ─────────────────────────────────────
+
+    @PostMapping("/family-doctor-requests")
+    public ResponseEntity<ApiResponse<FamilyDoctorRequestResponse>> sendFamilyDoctorRequest(
+            @RequestHeader("Authorization") String auth,
+            @RequestBody SendFamilyDoctorRequestRequest request) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"PATIENT".equals(token.role())) throw new UnauthorizedException("Only patients can send family doctor requests");
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.created(patientService.sendFamilyDoctorRequest(token.accountId(), request)));
+    }
+
+    @GetMapping("/family-doctor-requests/mine")
+    public ResponseEntity<ApiResponse<List<FamilyDoctorRequestResponse>>> getMyRequests(
+            @RequestHeader("Authorization") String auth) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"PATIENT".equals(token.role())) throw new UnauthorizedException("Only patients can view their requests");
+        return ResponseEntity.ok(ApiResponse.ok(patientService.getMyRequests(token.accountId())));
+    }
+
+    @DeleteMapping("/family-doctor-requests/{requestId}")
+    public ResponseEntity<ApiResponse<Void>> cancelFamilyDoctorRequest(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID requestId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"PATIENT".equals(token.role())) throw new UnauthorizedException("Only patients can cancel requests");
+        patientService.cancelFamilyDoctorRequest(requestId, token.accountId());
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/family-doctor-requests/incoming")
+    public ResponseEntity<ApiResponse<List<FamilyDoctorRequestResponse>>> getIncomingRequests(
+            @RequestHeader("Authorization") String auth) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Only doctors can view incoming requests");
+        return ResponseEntity.ok(ApiResponse.ok(patientService.getIncomingRequests(token.accountId())));
+    }
+
+    @PutMapping("/family-doctor-requests/{requestId}/respond")
+    public ResponseEntity<ApiResponse<FamilyDoctorRequestResponse>> respondToRequest(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID requestId,
+            @RequestBody RespondToFamilyDoctorRequestRequest request) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Only doctors can respond to requests");
+        return ResponseEntity.ok(ApiResponse.ok(patientService.respondToRequest(requestId, request.accept(), token.accountId())));
+    }
 }

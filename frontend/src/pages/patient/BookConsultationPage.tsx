@@ -6,12 +6,6 @@ import { getPatientDoctor, searchDoctors } from '../../api/userApi';
 import { getSlots, createConsultation } from '../../api/consultationApi';
 import type { DoctorResponse, SlotResponse, ConsultationType } from '../../types';
 
-type Step = 1 | 2 | 3;
-
-function formatTime(slotTime: string) {
-  return slotTime;
-}
-
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -21,7 +15,8 @@ export default function BookConsultationPage() {
   const { t } = useTranslation();
   const { profileId } = useAuthStore();
 
-  const [step, setStep] = useState<Step>(1);
+  // Step: 1 = doctor+type, 2 = date (IN_PERSON only), 3 = slot (IN_PERSON only)
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Step 1
   const [assignedDoctor, setAssignedDoctor] = useState<DoctorResponse | null>(null);
@@ -32,23 +27,22 @@ export default function BookConsultationPage() {
   const [searchResults, setSearchResults] = useState<DoctorResponse[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [consultationType, setConsultationType] = useState<ConsultationType>('IN_PERSON');
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Step 2
+  // Step 2 (IN_PERSON only)
   const [selectedDate, setSelectedDate] = useState(todayIso());
 
-  // Step 3
+  // Step 3 (IN_PERSON only)
   const [slots, setSlots] = useState<SlotResponse[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState('');
-  const [consultationType, setConsultationType] = useState<ConsultationType>('IN_PERSON');
   const [slotDuration, setSlotDuration] = useState(30);
 
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState('');
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -59,13 +53,9 @@ export default function BookConsultationPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Load assigned doctor + initial doctor list
   useEffect(() => {
     if (!profileId) return;
-    Promise.all([
-      getPatientDoctor(profileId),
-      searchDoctors(),
-    ]).then(([assigned, all]) => {
+    Promise.all([getPatientDoctor(profileId), searchDoctors()]).then(([assigned, all]) => {
       if (assigned) {
         setAssignedDoctor(assigned);
         setSelectedDoctor(assigned);
@@ -75,7 +65,6 @@ export default function BookConsultationPage() {
     }).finally(() => setDoctorLoading(false));
   }, [profileId]);
 
-  // Debounced search
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     setShowDropdown(true);
@@ -98,7 +87,6 @@ export default function BookConsultationPage() {
     setShowDropdown(false);
   };
 
-  // Load slots when entering step 3
   useEffect(() => {
     if (step !== 3 || !selectedDoctorId || !selectedDate) return;
     setSlotsLoading(true);
@@ -110,7 +98,22 @@ export default function BookConsultationPage() {
       .finally(() => setSlotsLoading(false));
   }, [step, selectedDoctorId, selectedDate]);
 
-  const handleBook = async () => {
+  const handleBookTelemedicine = async () => {
+    if (!selectedDoctorId) return;
+    setBooking(true);
+    setError('');
+    try {
+      await createConsultation({ doctorId: selectedDoctorId, consultationType: 'TELEMEDICINE' });
+      navigate('/patient/consultations');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
+      setError(axiosError.response?.data?.error?.message ?? t('booking.failedBook'));
+    } finally {
+      setBooking(false);
+    }
+  };
+
+  const handleBookInPerson = async () => {
     if (!selectedSlot) return;
     setBooking(true);
     setError('');
@@ -118,7 +121,7 @@ export default function BookConsultationPage() {
       await createConsultation({
         doctorId: selectedDoctorId,
         scheduledAt: `${selectedDate}T${selectedSlot}:00`,
-        consultationType,
+        consultationType: 'IN_PERSON',
         slotDurationMinutes: slotDuration,
       });
       navigate('/patient/consultations');
@@ -129,6 +132,11 @@ export default function BookConsultationPage() {
       setBooking(false);
     }
   };
+
+  const isTelemedicine = consultationType === 'TELEMEDICINE';
+  const stepLabels = isTelemedicine
+    ? [t('booking.step1')]
+    : [t('booking.step1'), t('booking.step2'), t('booking.step3')];
 
   const availableSlots = slots.filter((s) => s.available);
 
@@ -141,32 +149,29 @@ export default function BookConsultationPage() {
 
       {/* Step indicator */}
       <div className="flex items-center gap-2">
-        {([1, 2, 3] as Step[]).map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                step === s
-                  ? 'bg-blue-600 text-white'
-                  : step > s
-                  ? 'bg-blue-100 text-blue-600'
-                  : 'bg-slate-100 text-slate-400'
-              }`}
-            >
-              {step > s ? '✓' : s}
+        {stepLabels.map((label, i) => {
+          const s = i + 1;
+          return (
+            <div key={s} className="flex items-center gap-2">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step === s ? 'bg-blue-600 text-white' : step > s ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'
+                }`}
+              >
+                {step > s ? '✓' : s}
+              </div>
+              <span className={`text-sm font-medium ${step === s ? 'text-slate-900' : 'text-slate-400'}`}>{label}</span>
+              {i < stepLabels.length - 1 && <div className="flex-1 h-px bg-slate-200 w-8" />}
             </div>
-            <span className={`text-sm font-medium ${step === s ? 'text-slate-900' : 'text-slate-400'}`}>
-              {s === 1 ? t('booking.step1') : s === 2 ? t('booking.step2') : t('booking.step3')}
-            </span>
-            {i < 2 && <div className="flex-1 h-px bg-slate-200 w-8" />}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
-      {/* Step 1: Select doctor */}
+      {/* Step 1: Select doctor + type */}
       {step === 1 && (
         <div className="card">
           <div className="card-header">
@@ -188,9 +193,7 @@ export default function BookConsultationPage() {
                           : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
                       }`}
                     >
-                      <p className="text-sm font-medium text-slate-900">
-                        Dr. {assignedDoctor.firstName} {assignedDoctor.lastName}
-                      </p>
+                      <p className="text-sm font-medium text-slate-900">Dr. {assignedDoctor.firstName} {assignedDoctor.lastName}</p>
                       <p className="text-xs text-slate-500">{assignedDoctor.specialization} · {assignedDoctor.clinicName}</p>
                     </button>
                   </div>
@@ -226,9 +229,7 @@ export default function BookConsultationPage() {
                             <p className="text-sm font-medium text-slate-900">
                               Dr. {doc.firstName} {doc.lastName}
                               {doc.id === assignedDoctor?.id && (
-                                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                                  {t('booking.yourDoctor')}
-                                </span>
+                                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t('booking.yourDoctor')}</span>
                               )}
                             </p>
                             <p className="text-xs text-slate-500">{doc.specialization} · {doc.clinicName}</p>
@@ -241,29 +242,74 @@ export default function BookConsultationPage() {
 
                 {selectedDoctor && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm font-medium text-green-900">
-                      ✓ {t('booking.selected')} Dr. {selectedDoctor.firstName} {selectedDoctor.lastName}
-                    </p>
+                    <p className="text-sm font-medium text-green-900">✓ {t('booking.selected')} Dr. {selectedDoctor.firstName} {selectedDoctor.lastName}</p>
                     <p className="text-xs text-green-700">{selectedDoctor.specialization} · {selectedDoctor.clinicName}</p>
+                  </div>
+                )}
+
+                {/* Consultation type selection */}
+                <div>
+                  <label className="label">{t('booking.consultationType')}</label>
+                  <div className="grid grid-cols-2 gap-3 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setConsultationType('IN_PERSON')}
+                      className={`p-3 rounded-lg border text-left transition-colors ${
+                        consultationType === 'IN_PERSON'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-slate-900">{t('booking.inPerson')}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{t('booking.inPersonDesc')}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConsultationType('TELEMEDICINE')}
+                      className={`p-3 rounded-lg border text-left transition-colors ${
+                        consultationType === 'TELEMEDICINE'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-slate-900">{t('booking.telemedicine')}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{t('booking.telemedicineDesc')}</p>
+                    </button>
+                  </div>
+                </div>
+
+                {isTelemedicine && selectedDoctor && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                    {t('booking.telemedicineNote')}
                   </div>
                 )}
               </>
             )}
 
-            <div className="flex justify-end">
-              <button
-                className="btn-primary"
-                disabled={!selectedDoctorId}
-                onClick={() => setStep(2)}
-              >
-                {t('booking.nextDate')}
-              </button>
+            <div className="flex justify-end gap-3">
+              {isTelemedicine ? (
+                <button
+                  className="btn-primary"
+                  disabled={!selectedDoctorId || booking}
+                  onClick={handleBookTelemedicine}
+                >
+                  {booking ? t('booking.booking') : t('booking.bookTelemedicine')}
+                </button>
+              ) : (
+                <button
+                  className="btn-primary"
+                  disabled={!selectedDoctorId}
+                  onClick={() => setStep(2)}
+                >
+                  {t('booking.nextDate')}
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Step 2: Select date */}
+      {/* Step 2: Select date (IN_PERSON only) */}
       {step === 2 && (
         <div className="card">
           <div className="card-header">
@@ -280,26 +326,9 @@ export default function BookConsultationPage() {
                 onChange={(e) => setSelectedDate(e.target.value)}
               />
             </div>
-
-            <div>
-              <label className="label">{t('booking.consultationType')}</label>
-              <select
-                className="input-field"
-                value={consultationType}
-                onChange={(e) => setConsultationType(e.target.value as ConsultationType)}
-              >
-                <option value="IN_PERSON">{t('booking.inPerson')}</option>
-                <option value="TELEMEDICINE">{t('booking.telemedicine')}</option>
-              </select>
-            </div>
-
             <div className="flex justify-between">
               <button className="btn-secondary" onClick={() => setStep(1)}>{t('common.back')}</button>
-              <button
-                className="btn-primary"
-                disabled={!selectedDate}
-                onClick={() => setStep(3)}
-              >
+              <button className="btn-primary" disabled={!selectedDate} onClick={() => setStep(3)}>
                 {t('booking.nextSlot')}
               </button>
             </div>
@@ -307,7 +336,7 @@ export default function BookConsultationPage() {
         </div>
       )}
 
-      {/* Step 3: Select time slot */}
+      {/* Step 3: Select time slot (IN_PERSON only) */}
       {step === 3 && (
         <div className="card">
           <div className="card-header">
@@ -325,26 +354,21 @@ export default function BookConsultationPage() {
                 {availableSlots.map((slot) => (
                   <button
                     key={slot.slotTime}
-                    onClick={() => {
-                      setSelectedSlot(slot.slotTime);
-                      setSlotDuration(30);
-                    }}
+                    onClick={() => { setSelectedSlot(slot.slotTime); setSlotDuration(30); }}
                     className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
                       selectedSlot === slot.slotTime
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400 hover:bg-blue-50'
                     }`}
                   >
-                    {formatTime(slot.slotTime)}
+                    {slot.slotTime}
                   </button>
                 ))}
               </div>
             )}
 
             {selectedSlot && (
-              <p className="text-sm text-slate-600">
-                {t('booking.selected')} <strong>{formatTime(selectedSlot)}</strong>
-              </p>
+              <p className="text-sm text-slate-600">{t('booking.selected')} <strong>{selectedSlot}</strong></p>
             )}
 
             <div className="flex justify-between">
@@ -352,7 +376,7 @@ export default function BookConsultationPage() {
               <button
                 className="btn-primary"
                 disabled={!selectedSlot || booking}
-                onClick={handleBook}
+                onClick={handleBookInPerson}
               >
                 {booking ? t('booking.booking') : t('booking.confirmBooking')}
               </button>

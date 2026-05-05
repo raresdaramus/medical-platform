@@ -116,6 +116,16 @@ export const addReferral = async (id: string, data: ReferralRequest): Promise<Re
   return response.data.data;
 };
 
+export const linkNextConsultation = async (id: string, nextId: string): Promise<ConsultationResponse> => {
+  const response = await axiosInstance.put<ApiSuccess<ConsultationResponse>>(`/api/consultations/${id}/link-next/${nextId}`);
+  return response.data.data;
+};
+
+export const unlinkNextConsultation = async (id: string): Promise<ConsultationResponse> => {
+  const response = await axiosInstance.delete<ApiSuccess<ConsultationResponse>>(`/api/consultations/${id}/link-next`);
+  return response.data.data;
+};
+
 export const getDoctorPatientConsultations = async (doctorId: string, patientId: string): Promise<ConsultationResponse[]> => {
   const response = await axiosInstance.get<ApiSuccess<ConsultationResponse[]>>(
     `/api/consultations/doctor/${doctorId}/patient/${patientId}`

@@ -64,8 +64,8 @@ public class ConsultationController {
             @PathVariable UUID consultationId,
             @RequestBody IntakeFormRequest request) {
         ValidateTokenResponse token = authClient.validateToken(auth);
-        if (!"PATIENT".equals(token.role())) throw new UnauthorizedException("Patients only");
-        consultationService.submitIntake(consultationId, token.accountId(), request);
+        if (!"PATIENT".equals(token.role()) && !"DOCTOR".equals(token.role())) throw new UnauthorizedException("Not authorized");
+        consultationService.submitIntake(consultationId, token.accountId(), token.role(), request);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -142,6 +142,25 @@ public class ConsultationController {
             @PathVariable UUID patientId) {
         authClient.validateToken(auth);
         return ResponseEntity.ok(ApiResponse.ok(consultationService.getPatientConsultations(patientId)));
+    }
+
+    @PutMapping("/{consultationId}/link-next/{nextConsultationId}")
+    public ResponseEntity<ApiResponse<ConsultationResponse>> linkNext(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID consultationId,
+            @PathVariable UUID nextConsultationId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        return ResponseEntity.ok(ApiResponse.ok(consultationService.linkNextConsultation(consultationId, nextConsultationId, token.accountId())));
+    }
+
+    @DeleteMapping("/{consultationId}/link-next")
+    public ResponseEntity<ApiResponse<ConsultationResponse>> unlinkNext(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID consultationId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        return ResponseEntity.ok(ApiResponse.ok(consultationService.unlinkNextConsultation(consultationId, token.accountId())));
     }
 
     @GetMapping("/patients/{patientId}/record")

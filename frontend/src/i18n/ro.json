@@ -21,7 +21,9 @@
     "view": "Vezi →",
     "open": "Deschide →",
     "min": "min",
-    "confidence": "Încredere"
+    "confidence": "Încredere",
+    "all": "Toate",
+    "clearFilters": "Șterge filtrele"
   },
   "status": {
     "PENDING": "În așteptare",
@@ -98,7 +100,9 @@
     "completeProfileSub": "Contul există, dar trebuie să completați mai întâi profilul medical.",
     "createProfile": "Creați profilul de pacient",
     "creatingProfile": "Se creează profilul…",
-    "failedCreate": "Crearea profilului a eșuat."
+    "failedCreate": "Crearea profilului a eșuat.",
+    "upcomingConsultations": "Consultații viitoare",
+    "viewAll": "Vezi toate →"
   },
   "doctorDashboard": {
     "welcome": "Bun venit, Dr. {{name}}!",
@@ -135,7 +139,16 @@
     "managingConsultations": "Gestionați consultațiile pacienților dumneavoastră.",
     "consultationsNote": "Se afișează consultațiile active și recente. Consultațiile finalizate și anulate s-ar putea să nu apară.",
     "all": "Toate",
-    "failedLoad": "Încărcarea consultațiilor a eșuat."
+    "noMatch": "Nicio consultație nu corespunde filtrelor selectate.",
+    "result": "rezultat",
+    "results": "rezultate",
+    "failedLoad": "Încărcarea consultațiilor a eșuat.",
+    "filterByPatient": "Filtrează după numele pacientului…",
+    "async": "Telemedicină (asincron)",
+    "series": "Serie",
+    "partOfSeries": "Face parte dintr-o serie de consultații",
+    "previousConsultation": "Anterioară",
+    "nextConsultation": "Următoare"
   },
   "patients": {
     "myPatients": "Pacienții mei",
@@ -162,6 +175,7 @@
   "workspace": {
     "tabs": {
       "overview": "Prezentare generală",
+      "intake": "Fișă anamneză",
       "symptoms": "Simptome",
       "symptomsSuggestions": "Simptome & Sugestii",
       "diagnosis": "Diagnostic",
@@ -263,7 +277,32 @@
     "selectDiseaseOrCustom": "Selectați o boală sau introduceți un diagnostic personalizat.",
     "destinationRequired": "Destinația este obligatorie.",
     "reasonRequired": "Motivul este obligatoriu.",
-    "unknown": "Necunoscut"
+    "unknown": "Necunoscut",
+    "fillIntakeDoctor": "Completați fișa de anamneză (în numele pacientului)",
+    "fillIntakeDoctorSub": "Completați informațiile pacientului pe baza celor relatate în timpul consultației.",
+    "saveIntake": "Salvează anamneza",
+    "intakeNotFilled": "Anamneza nu a fost completată pentru această consultație.",
+    "consultationSeries": "Serie de consultații",
+    "linkToNext": "Leagă de o consultație ulterioară",
+    "link": "Leagă",
+    "removeLink": "Elimină legătura",
+    "nextConsultation": "Consultația următoare",
+    "previousConsultation": "Consultația anterioară",
+    "firstInSeries": "Prima din serie",
+    "lastInSeries": "Ultima din serie",
+    "nextConsultationIdPlaceholder": "ID-ul consultației ulterioare (UUID)…",
+    "linkHint": "Copiați ID-ul consultației de urmărire pentru a le lega.",
+    "linkFailed": "Legarea consultațiilor a eșuat.",
+    "followUp": {
+      "needsFollowUp": "Pacientul necesită o consultație de urmărire",
+      "scheduleTitle": "Programează consultația de urmărire",
+      "scheduleDate": "Data consultației de urmărire",
+      "scheduleTime": "Selectați intervalul orar",
+      "loadingSlots": "Se încarcă intervalele disponibile…",
+      "noSlots": "Niciun interval disponibil în această zi.",
+      "selectedSlot": "Interval selectat",
+      "completeAndSchedule": "Finalizează și programează urmărirea"
+    }
   },
   "booking": {
     "title": "Programează o consultație",
@@ -286,6 +325,10 @@
     "nextSlot": "Înainte: Alegeți intervalul",
     "dateLabel": "Data",
     "telemedicine": "Telemedicină",
+    "telemedicineDesc": "Asincron — fără programare necesară",
+    "inPersonDesc": "Consultație față în față",
+    "telemedicineNote": "O cerere de telemedicină va fi trimisă medicului. Acesta va răspunde când este disponibil — nu este necesară o dată sau un interval orar.",
+    "bookTelemedicine": "Trimite cerere telemedicină",
     "selected": "Selectat:",
     "confirmBooking": "Confirmați programarea",
     "noSlots": "Niciun interval disponibil pentru această dată.",
@@ -312,6 +355,7 @@
     "doctorNote": "Nota medicului",
     "confirmed": "Consultația este confirmată. Completați formularul de anamneză înainte de programare.",
     "fillForm": "Completați formularul de anamneză",
+    "inPersonDoctorFills": "Medicul dumneavoastră va completa fișa de anamneză în timpul consultației față în față.",
     "intakeFormTitle": "Formular de anamneză medicală",
     "intakeFormSubtitle": "Câmpurile marcate cu * sunt obligatorii. Restul sunt opționale.",
     "vitals": "Semne vitale (opțional)",
@@ -535,6 +579,31 @@
     "editRecords": "Editare fișe",
     "fullAccess": "Acces complet"
   },
+  "familyDoctor": {
+    "requestTitle": "Alegeți medicul de familie",
+    "requestSubtitle": "Căutați și trimiteți o cerere medicului de familie dorit.",
+    "searchPlaceholder": "Căutați medic după nume…",
+    "searching": "Se caută…",
+    "noDoctors": "Niciun medic găsit.",
+    "messageLabel": "Mesaj (opțional)",
+    "messagePlaceholder": "Adăugați un mesaj scurt pentru medic…",
+    "sendRequest": "Trimite cerere",
+    "sending": "Se trimite…",
+    "pendingRequest": "Cerere în așteptare",
+    "pendingRequestTo": "Cererea dvs. către Dr. {{name}} este în așteptare.",
+    "yourMessage": "Mesajul dvs.",
+    "cancelRequest": "Anulează cererea",
+    "previousRequests": "Cereri anterioare",
+    "status_ACCEPTED": "Acceptat",
+    "status_REJECTED": "Respins",
+    "failedSend": "Trimiterea cererii a eșuat.",
+    "enrollmentRequests": "Cereri de înrolare",
+    "pendingEnrollmentTitle": "Cereri de înrolare în așteptare",
+    "pendingEnrollmentSubtitle": "Pacienți care vă solicită ca medic de familie.",
+    "accept": "Acceptă",
+    "reject": "Respinge",
+    "failedRespond": "Răspunsul la cerere a eșuat."
+  },
   "medicalRecord": {
     "title": "Fișă medicală",
     "subtitle": "Istoricul dumneavoastră medical complet.",
@@ -546,6 +615,10 @@
     "intake": "Anamneză pacient",
     "diagnosis": "Diagnostic",
     "prescription": "Rețetă",
-    "referral": "Trimitere"
+    "referral": "Trimitere",
+    "searchPlaceholder": "Caută după rezumat sau medic…",
+    "noMatch": "Nicio intrare nu corespunde filtrului selectat.",
+    "result": "intrare",
+    "results": "intrări"
   }
 }

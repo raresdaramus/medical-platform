@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getConsultation, submitIntake, searchSymptoms } from '../../api/consultationApi';
+
 import type {
   FullConsultationResponse,
   IntakeFormRequest,
@@ -233,7 +234,9 @@ export default function ConsultationDetailPage() {
     );
   }
 
-  const canSubmitIntake = ['CONFIRMED', 'IN_PROGRESS'].includes(consultation.status) && !consultation.intake;
+  const isInPerson = consultation.consultationType === 'IN_PERSON';
+  // For IN_PERSON, the doctor fills the intake form — patient doesn't see it here
+  const canSubmitIntake = !isInPerson && ['CONFIRMED', 'IN_PROGRESS'].includes(consultation.status) && !consultation.intake;
 
   const zoneSymptomsEN = bodyZoneKey ? ZONE_SYMPTOMS_EN[bodyZoneKey] : [];
   const zoneSymptomsOptions = zoneSymptomsEN.map((s) => ({ value: s, label: t('symptomName.' + s) }));
@@ -249,10 +252,37 @@ export default function ConsultationDetailPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">{t('intake.consultationDetails')}</h1>
           <p className="text-slate-500 text-sm">
-            {new Date(consultation.scheduledAt).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })}
+            {consultation.scheduledAt
+              ? new Date(consultation.scheduledAt).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })
+              : t('consultations.async')}
           </p>
         </div>
       </div>
+
+      {/* Series navigation */}
+      {(consultation.previousConsultationId || consultation.nextConsultationId) && (
+        <div className="flex items-center gap-3 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm">
+          <span className="text-purple-700 font-medium">{t('consultations.partOfSeries')}</span>
+          <div className="flex gap-2 ml-auto">
+            {consultation.previousConsultationId && (
+              <button
+                className="btn-secondary text-xs"
+                onClick={() => navigate(`/patient/consultations/${consultation.previousConsultationId}`)}
+              >
+                ← {t('consultations.previousConsultation')}
+              </button>
+            )}
+            {consultation.nextConsultationId && (
+              <button
+                className="btn-secondary text-xs"
+                onClick={() => navigate(`/patient/consultations/${consultation.nextConsultationId}`)}
+              >
+                {t('consultations.nextConsultation')} →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Overview */}
       <div className="card">
@@ -282,7 +312,14 @@ export default function ConsultationDetailPage() {
         </div>
       </div>
 
-      {/* Intake form CTA */}
+      {/* IN_PERSON notice: doctor fills intake */}
+      {isInPerson && ['CONFIRMED', 'IN_PROGRESS'].includes(consultation.status) && !consultation.intake && (
+        <div className="card card-body bg-blue-50 border-blue-200">
+          <p className="text-sm text-blue-800 font-medium">{t('intake.inPersonDoctorFills')}</p>
+        </div>
+      )}
+
+      {/* Intake form CTA (TELEMEDICINE only) */}
       {canSubmitIntake && !showIntakeForm && (
         <div className="card card-body bg-blue-50 border-blue-200">
           <p className="text-sm text-blue-800 font-medium">{t('intake.confirmed')}</p>

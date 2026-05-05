@@ -13,5 +13,11 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Force reload when Chrome restores page from session/bfcache
+      window.addEventListener('pageshow', function(e) {
+        if (e.persisted) { window.location.reload(); }
+      });
+    </script>
   </body>
 </html>
