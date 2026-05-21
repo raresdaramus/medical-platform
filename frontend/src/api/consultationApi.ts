@@ -17,6 +17,7 @@ import type {
   DiseaseDto,
   MedicationDto,
   DiseaseSuggestion,
+  AiSuggestion,
   CompleteConsultationRequest,
   ApiSuccess,
 } from '../types';
@@ -169,5 +170,12 @@ export const searchMedications = async (search: string): Promise<MedicationDto[]
   const response = await axiosInstance.get<ApiSuccess<MedicationDto[]>>('/api/consultations/medications', {
     params: { search },
   });
+  return response.data.data;
+};
+
+export const aiSuggestDiagnoses = async (consultationId: string): Promise<AiSuggestion[]> => {
+  const response = await axiosInstance.post<ApiSuccess<AiSuggestion[]>>(
+    `/api/consultations/${consultationId}/ai-suggest`
+  );
   return response.data.data;
 };

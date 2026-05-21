@@ -123,6 +123,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: consult_pass
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
+      GROQ_API_KEY: ${GROQ_API_KEY}
     depends_on:
       postgres-consult:
         condition: service_healthy

@@ -13,7 +13,10 @@
       "Bash(docker-compose ps *)",
       "Bash(docker exec postgres-consult *)",
       "Bash(curl *)",
-      "Bash(docker-compose build *)"
+      "Bash(docker-compose build *)",
+      "Bash(Get-ChildItem -Recurse -Path \"consultation-service/src/main/java\" -File)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(Get-Content *)"
     ]
   }
 }

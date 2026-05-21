@@ -236,6 +236,17 @@
     "diseaseSuggestions": "Sugestii de boli",
     "aiDiagnosis": "Diagnostic diferențial asistat de AI pe baza simptomelor.",
     "match": "% potrivire",
+    "aiSuggestions": "Sugestii AI de Diagnostic",
+    "aiSuggestSub": "Generat de AI (Llama 3) pe baza contextului complet al pacientului.",
+    "aiSuggest": "Generează Diagnostice AI",
+    "aiSuggestLoading": "Se generează…",
+    "aiSuggestError": "Eroare la generarea sugestiilor AI. Încearcă din nou.",
+    "aiSuggestHint": "Apasă \"Generează Diagnostice AI\" pentru 5 sugestii bazate pe AI.",
+    "aiConfidence": {
+      "high": "Încredere ridicată",
+      "medium": "Încredere medie",
+      "low": "Încredere scăzută"
+    },
     "since": "Din",
     "diagnoses": "Diagnostice",
     "addDiagnosis": "Adaugă diagnostic",

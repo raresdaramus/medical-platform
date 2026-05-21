@@ -29,6 +29,7 @@ public class ConsultationService {
     private final MedicalRecordEntryRepository medicalRecordEntryRepository;
     private final SchedulingService schedulingService;
     private final UserClient userClient;
+    private final GroqService groqService;
 
     public ConsultationService(ConsultationRepository consultationRepository,
                                ConsultationSymptomRepository symptomRepository,
@@ -40,7 +41,8 @@ public class ConsultationService {
                                ReferralRepository referralRepository,
                                MedicalRecordEntryRepository medicalRecordEntryRepository,
                                SchedulingService schedulingService,
-                               UserClient userClient) {
+                               UserClient userClient,
+                               GroqService groqService) {
         this.consultationRepository = consultationRepository;
         this.symptomRepository = symptomRepository;
         this.ontologySymptomRepository = ontologySymptomRepository;
@@ -52,6 +54,7 @@ public class ConsultationService {
         this.medicalRecordEntryRepository = medicalRecordEntryRepository;
         this.schedulingService = schedulingService;
         this.userClient = userClient;
+        this.groqService = groqService;
     }
 
     @Transactional(readOnly = true)
@@ -423,6 +426,65 @@ public class ConsultationService {
         } catch (Exception e) {
             throw new UnauthorizedException("Could not resolve doctor profile for account: " + accountId);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<AiSuggestionResponse> aiSuggest(UUID consultationId) {
+        getConsultationById(consultationId);
+
+        StringBuilder context = new StringBuilder();
+
+        intakeFormRepository.findByConsultationId(consultationId).ifPresent(form -> {
+            if (form.getChiefComplaint() != null)
+                context.append("Chief complaint: ").append(form.getChiefComplaint()).append("\n");
+            if (form.getSymptomOnset() != null)
+                context.append("Symptom onset: ").append(form.getSymptomOnset()).append("\n");
+            if (form.getPainIntensity() != null)
+                context.append("Pain intensity: ").append(form.getPainIntensity()).append("\n");
+            if (form.getPainType() != null)
+                context.append("Pain type: ").append(form.getPainType()).append("\n");
+            if (form.getBodyZone() != null)
+                context.append("Body zone affected: ").append(form.getBodyZone()).append("\n");
+            if (form.getTemperature() != null)
+                context.append("Temperature: ").append(form.getTemperature()).append(" °C\n");
+            if (form.getBloodPressure() != null)
+                context.append("Blood pressure: ").append(form.getBloodPressure()).append("\n");
+            if (form.getBloodGlucose() != null)
+                context.append("Blood glucose: ").append(form.getBloodGlucose()).append(" mg/dL\n");
+            if (form.getGeneralSymptoms() != null)
+                context.append("General symptoms: ").append(form.getGeneralSymptoms()).append("\n");
+            if (form.getKnownConditions() != null)
+                context.append("Known conditions: ").append(form.getKnownConditions()).append("\n");
+            if (form.getCurrentMedications() != null)
+                context.append("Current medications: ").append(form.getCurrentMedications()).append("\n");
+            if (form.getAllergies() != null)
+                context.append("Allergies: ").append(form.getAllergies()).append("\n");
+            if (form.getAdditionalNotes() != null)
+                context.append("Additional notes: ").append(form.getAdditionalNotes()).append("\n");
+        });
+
+        List<ConsultationSymptom> symptoms = symptomRepository.findByConsultationId(consultationId);
+        if (!symptoms.isEmpty()) {
+            context.append("Specific symptoms:\n");
+            for (ConsultationSymptom cs : symptoms) {
+                if (cs.getSymptomId() != null) {
+                    String name = ontologySymptomRepository.findById(cs.getSymptomId())
+                            .map(com.mediconnect.consultation.entity.Symptom::getName)
+                            .orElse(cs.getSymptomId().toString());
+                    context.append("- ").append(name);
+                } else if (cs.getCustomSymptomText() != null) {
+                    context.append("- ").append(cs.getCustomSymptomText());
+                }
+                if (cs.getSeverity() != null) context.append(" (severity: ").append(cs.getSeverity()).append(")");
+                context.append("\n");
+            }
+        }
+
+        if (context.isEmpty()) {
+            throw new ResourceNotFoundException("No patient data available for AI suggestion on consultation: " + consultationId);
+        }
+
+        return groqService.suggestDiagnoses(context.toString());
     }
 
     private Consultation getConsultationById(UUID id) {

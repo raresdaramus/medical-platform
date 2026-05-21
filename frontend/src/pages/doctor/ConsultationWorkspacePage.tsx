@@ -8,7 +8,7 @@ import {
   addDiagnosis,
   addPrescription,
   addReferral,
-  suggestDiseases,
+  aiSuggestDiagnoses,
   searchDiseases,
   searchMedications,
   submitIntake,
@@ -28,7 +28,7 @@ import type {
   UrgencyLevel,
   DiseaseDto,
   MedicationDto,
-  DiseaseSuggestion,
+  AiSuggestion,
   IntakeFormRequest,
   SymptomEntry,
   SymptomDto,
@@ -256,38 +256,49 @@ function OverviewTab({
 
 function SymptomsTab({ consultation }: { consultation: FullConsultationResponse }) {
   const { t } = useTranslation();
-  const [suggestions, setSuggestions] = useState<DiseaseSuggestion[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   const symptoms = consultation.intake?.symptoms ?? [];
-  const symptomIds = symptoms.map((s) => s.symptomId).filter((id): id is string => !!id);
 
-  const handleSuggest = async () => {
-    if (symptomIds.length === 0) return;
-    setLoading(true);
+  const handleAiSuggest = async () => {
+    setAiLoading(true);
+    setAiError('');
     try {
-      const data = await suggestDiseases(symptomIds);
-      setSuggestions(data);
+      const data = await aiSuggestDiagnoses(consultation.id);
+      setAiSuggestions(data);
+    } catch {
+      setAiError(t('workspace.aiSuggestError'));
     } finally {
-      setLoading(false);
+      setAiLoading(false);
     }
   };
 
+  const confidenceBadge = (c: string) =>
+    c === 'high' ? 'badge-green' : c === 'low' ? 'badge-red' : 'badge-yellow';
+
   return (
     <div className="space-y-4">
+      {/* AI Suggest button — always visible */}
+      <div className="flex justify-end">
+        <button
+          className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50 transition-colors"
+          onClick={handleAiSuggest}
+          disabled={aiLoading}
+        >
+          {aiLoading ? t('workspace.aiSuggestLoading') : t('workspace.aiSuggest')}
+        </button>
+      </div>
+
       {symptoms.length === 0 ? (
         <div className="card card-body text-center py-8">
           <p className="text-slate-500">{t('workspace.noSymptoms')}</p>
         </div>
       ) : (
         <div className="card">
-          <div className="card-header flex items-center justify-between">
+          <div className="card-header">
             <h3 className="font-semibold text-slate-900">{t('workspace.reportedSymptoms')}</h3>
-            {symptomIds.length > 0 && (
-              <button className="btn-secondary text-xs" onClick={handleSuggest} disabled={loading}>
-                {loading ? t('workspace.analyzing') : t('workspace.getSuggestions')}
-              </button>
-            )}
           </div>
           <div className="divide-y divide-slate-100">
             {symptoms.map((s, i) => (
@@ -317,25 +328,34 @@ function SymptomsTab({ consultation }: { consultation: FullConsultationResponse 
         </div>
       )}
 
-      {suggestions.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3 className="font-semibold text-slate-900">{t('workspace.diseaseSuggestions')}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{t('workspace.aiDiagnosis')}</p>
+      {(aiSuggestions.length > 0 || aiError) && (
+        <div className="card border-violet-200">
+          <div className="card-header bg-violet-50 rounded-t-xl">
+            <h3 className="font-semibold text-violet-900">{t('workspace.aiSuggestions')}</h3>
+            <p className="text-xs text-violet-600 mt-0.5">{t('workspace.aiSuggestSub')}</p>
           </div>
-          <div className="divide-y divide-slate-100">
-            {suggestions.map((s, i) => (
-              <div key={i} className="card-body text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-800">{s.diseaseName}</span>
-                  <span className="badge-blue">{Math.round(s.score * 100)}{t('workspace.match')}</span>
+          {aiError && (
+            <div className="card-body">
+              <p className="text-red-600 text-sm">{aiError}</p>
+            </div>
+          )}
+          {aiSuggestions.length > 0 && (
+            <div className="divide-y divide-violet-100">
+              {aiSuggestions.map((s, i) => (
+                <div key={i} className="card-body text-sm space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-800">{s.name}</span>
+                    <span className={confidenceBadge(s.confidence)}>
+                      {t('workspace.aiConfidence.' + s.confidence)}
+                    </span>
+                  </div>
+                  {s.description && (
+                    <p className="text-slate-500 text-xs">{s.description}</p>
+                  )}
                 </div>
-                {s.icd10Code && (
-                  <span className="text-xs text-slate-500">ICD-10: {s.icd10Code}</span>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

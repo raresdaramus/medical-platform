@@ -370,6 +370,12 @@ export interface DiseaseSuggestion {
   score: number;
 }
 
+export interface AiSuggestion {
+  name: string;
+  description: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 // ─── Medical Record ───────────────────────────────────────────────────────────
 
 export type RecordEntryType = 'INTAKE' | 'DIAGNOSIS' | 'PRESCRIPTION' | 'REFERRAL';

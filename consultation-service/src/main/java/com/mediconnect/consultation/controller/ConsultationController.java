@@ -170,4 +170,13 @@ public class ConsultationController {
         ValidateTokenResponse token = authClient.validateToken(auth);
         return ResponseEntity.ok(ApiResponse.ok(consultationService.getMedicalRecord(patientId, token.accountId(), token.role())));
     }
+
+    @PostMapping("/{consultationId}/ai-suggest")
+    public ResponseEntity<ApiResponse<List<AiSuggestionResponse>>> aiSuggest(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID consultationId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        return ResponseEntity.ok(ApiResponse.ok(consultationService.aiSuggest(consultationId)));
+    }
 }
