@@ -19,6 +19,8 @@ import type {
   DiseaseSuggestion,
   AiSuggestion,
   CompleteConsultationRequest,
+  DocumentResponse,
+  StatisticsResponse,
   ApiSuccess,
 } from '../types';
 
@@ -173,9 +175,61 @@ export const searchMedications = async (search: string): Promise<MedicationDto[]
   return response.data.data;
 };
 
-export const aiSuggestDiagnoses = async (consultationId: string): Promise<AiSuggestion[]> => {
+export const getStatistics = async (): Promise<StatisticsResponse> => {
+  const response = await axiosInstance.get<ApiSuccess<StatisticsResponse>>('/api/consultations/statistics');
+  return response.data.data;
+};
+
+export const deleteDiagnosis = async (diagnosisId: string): Promise<void> => {
+  await axiosInstance.delete(`/api/consultations/diagnosis/${diagnosisId}`);
+};
+
+export const deletePrescription = async (prescriptionId: string): Promise<void> => {
+  await axiosInstance.delete(`/api/consultations/prescription/${prescriptionId}`);
+};
+
+export const deleteReferral = async (referralId: string): Promise<void> => {
+  await axiosInstance.delete(`/api/consultations/referral/${referralId}`);
+};
+
+export const aiSuggestDiagnoses = async (consultationId: string, lang: string): Promise<AiSuggestion[]> => {
   const response = await axiosInstance.post<ApiSuccess<AiSuggestion[]>>(
-    `/api/consultations/${consultationId}/ai-suggest`
+    `/api/consultations/${consultationId}/ai-suggest`,
+    null,
+    { params: { lang } }
   );
   return response.data.data;
+};
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+
+export const getDocuments = async (consultationId: string): Promise<DocumentResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<DocumentResponse[]>>(
+    `/api/consultations/${consultationId}/documents`
+  );
+  return response.data.data;
+};
+
+export const uploadDocument = async (consultationId: string, file: File): Promise<DocumentResponse> => {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await axiosInstance.post<ApiSuccess<DocumentResponse>>(
+    `/api/consultations/${consultationId}/documents`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return response.data.data;
+};
+
+export const deleteDocument = async (documentId: string): Promise<void> => {
+  await axiosInstance.delete(`/api/consultations/documents/${documentId}`);
+};
+
+export const openDocument = async (documentId: string): Promise<void> => {
+  const response = await axiosInstance.get(
+    `/api/consultations/documents/${documentId}/download`,
+    { responseType: 'blob' }
+  );
+  const url = URL.createObjectURL(response.data);
+  window.open(url, '_blank');
 };

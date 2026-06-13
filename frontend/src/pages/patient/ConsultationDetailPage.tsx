@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getConsultation, submitIntake, searchSymptoms } from '../../api/consultationApi';
+import { getConsultation, submitIntake, searchSymptoms, uploadDocument, openDocument, deleteDocument } from '../../api/consultationApi';
 
 import type {
   FullConsultationResponse,
@@ -10,6 +10,7 @@ import type {
   SymptomDto,
   SeverityLevel,
   ConsultationStatus,
+  DocumentResponse,
 } from '../../types';
 
 function statusBadge(status: ConsultationStatus, t: (k: string) => string) {
@@ -100,7 +101,7 @@ function CheckboxGroup({ options, selected, onChange }: {
 export default function ConsultationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [consultation, setConsultation] = useState<FullConsultationResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,11 +133,19 @@ export default function ConsultationDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [intakeError, setIntakeError] = useState('');
 
+  // Documents state
+  const [docUploading, setDocUploading] = useState(false);
+  const [docError, setDocError] = useState('');
+  const [localDocs, setLocalDocs] = useState<DocumentResponse[]>([]);
+  const [docConfirmDeleteId, setDocConfirmDeleteId] = useState<string | null>(null);
+  const [docDeleting, setDocDeleting] = useState(false);
+
   const load = async () => {
     if (!id) return;
     try {
       const data = await getConsultation(id);
       setConsultation(data);
+      setLocalDocs(data.documents ?? []);
     } catch {
       setError('Failed to load consultation details.');
     } finally {
@@ -221,6 +230,54 @@ export default function ConsultationDetailPage() {
     }
   };
 
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    e.target.value = '';
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setDocError(t('workspace.documents.onlyPdf'));
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setDocError(t('workspace.documents.tooLarge'));
+      return;
+    }
+    if (localDocs.length >= 10) {
+      setDocError(t('workspace.documents.maxReached'));
+      return;
+    }
+    setDocError('');
+    setDocUploading(true);
+    try {
+      const doc = await uploadDocument(id, file);
+      setLocalDocs((prev) => [...prev, doc]);
+    } catch {
+      setDocError(t('workspace.documents.failedUpload'));
+    } finally {
+      setDocUploading(false);
+    }
+  };
+
+  const handleDocDelete = async (docId: string) => {
+    setDocDeleting(true);
+    try {
+      await deleteDocument(docId);
+      setLocalDocs((prev) => prev.filter((d) => d.id !== docId));
+      setDocConfirmDeleteId(null);
+    } catch {
+      setDocError(t('workspace.documents.failedDelete'));
+    } finally {
+      setDocDeleting(false);
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center py-20 text-slate-400">{t('common.loading')}</div>;
   }
@@ -236,7 +293,7 @@ export default function ConsultationDetailPage() {
 
   const isInPerson = consultation.consultationType === 'IN_PERSON';
   // For IN_PERSON, the doctor fills the intake form — patient doesn't see it here
-  const canSubmitIntake = !isInPerson && ['CONFIRMED', 'IN_PROGRESS'].includes(consultation.status) && !consultation.intake;
+  const canSubmitIntake = !isInPerson && ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(consultation.status) && !consultation.intake;
 
   const zoneSymptomsEN = bodyZoneKey ? ZONE_SYMPTOMS_EN[bodyZoneKey] : [];
   const zoneSymptomsOptions = zoneSymptomsEN.map((s) => ({ value: s, label: t('symptomName.' + s) }));
@@ -727,7 +784,7 @@ export default function ConsultationDetailPage() {
             {(consultation.diagnoses ?? []).map((d) => (
               <div key={d.id} className="card-body text-sm space-y-1">
                 <div className="font-medium text-slate-800">
-                  {d.diseaseName ?? d.customDiagnosis ?? t('intake.unknown')}
+                  {d.diseaseName ? (i18n.language === 'ro' ? (d.diseaseNameRo ?? d.diseaseName) : d.diseaseName) : (d.customDiagnosis ?? t('intake.unknown'))}
                   {d.icd10Code && <span className="ml-2 text-xs text-slate-500">ICD-10: {d.icd10Code}</span>}
                 </div>
                 <div className="text-slate-500">{t('common.confidence')}: {Math.round(d.confidence * 100)}%</div>
@@ -784,6 +841,80 @@ export default function ConsultationDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Documents */}
+      <div className="card">
+        <div className="card-header flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-slate-900">{t('workspace.documents.title')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('workspace.documents.subtitle')}</p>
+          </div>
+          {['CONFIRMED', 'IN_PROGRESS'].includes(consultation.status) && (
+            <label className={`btn-primary text-sm cursor-pointer ${docUploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+              {docUploading ? t('workspace.documents.uploading') : t('workspace.documents.upload')}
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                disabled={docUploading || localDocs.length >= 10}
+                onChange={handleDocUpload}
+              />
+            </label>
+          )}
+        </div>
+        <div className="card-body">
+          {docError && (
+            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+              {docError}
+            </div>
+          )}
+          {localDocs.length === 0 ? (
+            <p className="text-slate-400 text-sm">{t('workspace.documents.noDocuments')}</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {localDocs.map((doc) => (
+                <li key={doc.id} className="flex items-center gap-3 py-3">
+                  <span className="text-2xl">📄</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{doc.fileName}</p>
+                    <p className="text-xs text-slate-400">
+                      {formatBytes(doc.fileSize)} · {t('workspace.documents.uploadedBy')}{' '}
+                      {doc.uploaderRole === 'DOCTOR' ? t('workspace.documents.doctor') : t('workspace.documents.patient')}
+                      {' · '}
+                      {new Date(doc.uploadedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    className="btn-secondary text-xs shrink-0"
+                    onClick={() => openDocument(doc.id)}
+                  >
+                    {t('workspace.documents.download')}
+                  </button>
+                  {docConfirmDeleteId === doc.id ? (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-xs text-slate-600">{t('workspace.confirmDelete')}</span>
+                      <button
+                        className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                        onClick={() => handleDocDelete(doc.id)}
+                        disabled={docDeleting}
+                      >
+                        {t('common.yes')}
+                      </button>
+                      <button className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50" onClick={() => setDocConfirmDeleteId(null)}>
+                        {t('common.cancel')}
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="text-xs text-red-500 hover:text-red-700 shrink-0" onClick={() => setDocConfirmDeleteId(doc.id)}>
+                      {t('workspace.delete')}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

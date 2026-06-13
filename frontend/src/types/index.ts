@@ -163,6 +163,12 @@ export interface CreatePermissionRequest {
   expiresAt: string | null;
 }
 
+export interface PermittedPatientResponse {
+  patient: PatientResponse;
+  permissionType: PermissionType;
+  expiresAt: string | null;
+}
+
 // ─── Consultation Service ─────────────────────────────────────────────────────
 
 export type ConsultationType = 'IN_PERSON' | 'TELEMEDICINE';
@@ -264,6 +270,7 @@ export interface DiagnosisResponse {
   consultationId: string;
   diseaseId?: string;
   diseaseName?: string;
+  diseaseNameRo?: string;
   customDiagnosis?: string;
   icd10Code?: string;
   confidence: number;
@@ -326,6 +333,16 @@ export interface ReferralResponse {
   createdAt: string;
 }
 
+export interface DocumentResponse {
+  id: string;
+  consultationId: string;
+  uploadedBy: string;
+  uploaderRole: 'PATIENT' | 'DOCTOR';
+  fileName: string;
+  fileSize: number;
+  uploadedAt: string;
+}
+
 export interface FullConsultationResponse extends ConsultationResponse {
   intake?: IntakeResponse;
   diagnoses: DiagnosisResponse[];
@@ -333,6 +350,7 @@ export interface FullConsultationResponse extends ConsultationResponse {
   referrals: ReferralResponse[];
   noteDoctor?: string;
   previousConsultationId?: string | null;
+  documents?: DocumentResponse[];
 }
 
 export interface CompleteConsultationRequest {
@@ -352,8 +370,10 @@ export interface SymptomDto {
 export interface DiseaseDto {
   id: string;
   name: string;
+  nameRo?: string;
   icd10Code?: string;
   description?: string;
+  category?: string;
 }
 
 export interface MedicationDto {
@@ -366,6 +386,7 @@ export interface MedicationDto {
 export interface DiseaseSuggestion {
   diseaseId: string;
   diseaseName: string;
+  diseaseNameRo?: string;
   icd10Code?: string;
   score: number;
 }
@@ -374,6 +395,28 @@ export interface AiSuggestion {
   name: string;
   description: string;
   confidence: 'high' | 'medium' | 'low';
+}
+
+// ─── Statistics ───────────────────────────────────────────────────────────────
+
+export interface DiseaseFrequency { name: string; nameRo?: string; icd10Code?: string; category?: string; count: number; }
+export interface MonthlyTrend     { diseaseName: string; diseaseNameRo?: string; year: number; month: number; count: number; }
+export interface MedDiseaseHeat   { diseaseName: string; diseaseNameRo?: string; medicationName: string; count: number; }
+export interface SankeyData       { total: number; completed: number; withDiagnosis: number; withPrescription: number; withReferral: number; withFollowUp: number; }
+export interface ReferralUrgency  { urgency: string; year: number; month: number; count: number; }
+export interface MedicationFrequency { medicationName: string; count: number; }
+export interface SymptomLink      { diseaseId: string; diseaseName: string; diseaseNameRo?: string; symptomId: string; symptomName: string; symptomNameRo?: string; probability: number; isPathognomonic: boolean; }
+export interface VitalsPerDisease { diseaseName: string; diseaseNameRo?: string; avgTemperature: number; avgGlucose: number; avgSystolic: number; avgDiastolic: number; count: number; }
+
+export interface StatisticsResponse {
+  diseaseFrequency:  DiseaseFrequency[];
+  monthlyTrends:     MonthlyTrend[];
+  medicationHeatmap: MedDiseaseHeat[];
+  sankey:            SankeyData;
+  referralUrgency:   ReferralUrgency[];
+  topMedications:    MedicationFrequency[];
+  symptomNetwork:    SymptomLink[];
+  vitalsPerDisease:  VitalsPerDisease[];
 }
 
 // ─── Medical Record ───────────────────────────────────────────────────────────

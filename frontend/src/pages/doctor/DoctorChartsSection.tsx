@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getConsultation } from '../../api/consultationApi';
 import type { ConsultationResponse, ConsultationStatus } from '../../types';
 
@@ -16,19 +17,12 @@ const STATUS_COLORS: Record<ConsultationStatus, string> = {
   CANCELLED:   '#ef4444',
 };
 
-const STATUS_LABELS: Record<ConsultationStatus, string> = {
-  PENDING:     'Pending',
-  CONFIRMED:   'Confirmed',
-  IN_PROGRESS: 'In Progress',
-  COMPLETED:   'Completed',
-  CANCELLED:   'Cancelled',
-};
-
 const BAR_COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#a78bfa', '#60a5fa', '#93c5fd', '#c4b5fd', '#818cf8'];
 
 // ─── Donut ────────────────────────────────────────────────────────────────────
 
 function DonutChart({ consultations }: { consultations: ConsultationResponse[] }) {
+  const { t } = useTranslation();
   const counts: Partial<Record<ConsultationStatus, number>> = {};
   for (const c of consultations) {
     counts[c.status] = (counts[c.status] ?? 0) + 1;
@@ -39,7 +33,7 @@ function DonutChart({ consultations }: { consultations: ConsultationResponse[] }
   if (total === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-slate-400 text-sm">
-        No consultations yet
+        {t('doctorDashboard.noConsultationsYet')}
       </div>
     );
   }
@@ -94,7 +88,7 @@ function DonutChart({ consultations }: { consultations: ConsultationResponse[] }
               className="w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: STATUS_COLORS[status] }}
             />
-            <span className="text-slate-600 truncate">{STATUS_LABELS[status]}</span>
+            <span className="text-slate-600 truncate">{t('status.' + status)}</span>
             <span className="font-semibold text-slate-800 ml-auto pl-3 tabular-nums">{count}</span>
           </div>
         ))}
@@ -106,6 +100,7 @@ function DonutChart({ consultations }: { consultations: ConsultationResponse[] }
 // ─── Top Symptoms ─────────────────────────────────────────────────────────────
 
 function TopSymptomsChart({ consultations }: { consultations: ConsultationResponse[] }) {
+  const { t } = useTranslation();
   const [symptomCounts, setSymptomCounts] = useState<{ name: string; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -140,7 +135,7 @@ function TopSymptomsChart({ consultations }: { consultations: ConsultationRespon
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40 text-slate-400 text-sm">
-        Loading…
+        {t('doctorDashboard.loadingSymptoms')}
       </div>
     );
   }
@@ -148,7 +143,7 @@ function TopSymptomsChart({ consultations }: { consultations: ConsultationRespon
   if (symptomCounts.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-slate-400 text-sm">
-        No completed consultations with symptoms yet
+        {t('doctorDashboard.noSymptomData')}
       </div>
     );
   }
@@ -160,7 +155,7 @@ function TopSymptomsChart({ consultations }: { consultations: ConsultationRespon
       {symptomCounts.map(({ name, count }, i) => (
         <div key={name} className="flex items-center gap-3 text-sm">
           <span className="w-36 text-slate-600 truncate flex-shrink-0 text-right" title={name}>
-            {name}
+            {t('symptomName.' + name, name)}
           </span>
           <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
             <div
@@ -183,15 +178,16 @@ function TopSymptomsChart({ consultations }: { consultations: ConsultationRespon
 // ─── Section ──────────────────────────────────────────────────────────────────
 
 export default function DoctorChartsSection({ consultations }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="card card-body">
-        <h2 className="font-semibold text-slate-900 mb-5">Consultation Status</h2>
+        <h2 className="font-semibold text-slate-900 mb-5">{t('doctorDashboard.consultationStatus')}</h2>
         <DonutChart consultations={consultations} />
       </div>
 
       <div className="card card-body">
-        <h2 className="font-semibold text-slate-900 mb-5">Top Reported Symptoms</h2>
+        <h2 className="font-semibold text-slate-900 mb-5">{t('doctorDashboard.topReportedSymptoms')}</h2>
         <TopSymptomsChart consultations={consultations} />
       </div>
     </div>

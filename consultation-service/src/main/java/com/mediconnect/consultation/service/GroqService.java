@@ -34,16 +34,21 @@ public class GroqService {
         this.restClient = RestClient.create();
     }
 
-    public List<AiSuggestionResponse> suggestDiagnoses(String patientContext) {
+    public List<AiSuggestionResponse> suggestDiagnoses(String patientContext, String lang) {
+        String languageInstruction = "ro".equalsIgnoreCase(lang)
+                ? "Respond entirely in Romanian language."
+                : "Respond entirely in English language.";
+
         String userPrompt = """
                 Based on the following patient information, suggest exactly 5 possible diagnoses.
 
                 Patient information:
                 %s
 
+                %s
                 Respond ONLY with a valid JSON array (no markdown, no extra text):
                 [{"name": "Disease Name", "description": "Brief reason this diagnosis fits", "confidence": "high|medium|low"}]
-                """.formatted(patientContext);
+                """.formatted(patientContext, languageInstruction);
 
         Map<String, Object> body = Map.of(
                 "model", model,

@@ -44,7 +44,7 @@ public class OntologyService {
             double rawScore = ((Number) row[1]).doubleValue();
             double normalizedScore = rawScore / totalSymptoms;
             diseaseRepository.findById(diseaseId).ifPresent(disease ->
-                suggestions.add(new DiseaseSuggestion(diseaseId, disease.getName(), disease.getIcd10Code(), normalizedScore))
+                suggestions.add(new DiseaseSuggestion(diseaseId, disease.getName(), disease.getNameRo(), disease.getIcd10Code(), normalizedScore))
             );
             if (suggestions.size() >= 5) break;
         }
@@ -52,8 +52,8 @@ public class OntologyService {
     }
 
     public List<DiseaseResponse> searchDiseases(String term) {
-        return diseaseRepository.findByNameContainingIgnoreCase(term).stream()
-            .map(d -> new DiseaseResponse(d.getId(), d.getName(), d.getIcd10Code(), d.getCategory()))
+        return diseaseRepository.findByNameContainingIgnoreCaseOrNameRoContainingIgnoreCase(term, term).stream()
+            .map(d -> new DiseaseResponse(d.getId(), d.getName(), d.getNameRo(), d.getIcd10Code(), d.getCategory()))
             .collect(Collectors.toList());
     }
 

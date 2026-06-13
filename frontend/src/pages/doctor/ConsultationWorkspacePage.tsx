@@ -16,6 +16,12 @@ import {
   unlinkNextConsultation,
   searchSymptoms,
   getSlots,
+  uploadDocument,
+  openDocument,
+  deleteDocument,
+  deleteDiagnosis,
+  deletePrescription,
+  deleteReferral,
 } from '../../api/consultationApi';
 import type {
   FullConsultationResponse,
@@ -34,9 +40,10 @@ import type {
   SymptomDto,
   SeverityLevel,
   SlotResponse,
+  DocumentResponse,
 } from '../../types';
 
-type Tab = 'overview' | 'intake' | 'symptoms' | 'diagnosis' | 'prescription' | 'referral';
+type Tab = 'overview' | 'intake' | 'symptoms' | 'diagnosis' | 'prescription' | 'referral' | 'documents' | 'review';
 
 function StatusBadge({ status, t }: { status: ConsultationStatus; t: (k: string) => string }) {
   const map: Record<string, string> = {
@@ -55,31 +62,13 @@ function StatusBadge({ status, t }: { status: ConsultationStatus; t: (k: string)
 function OverviewTab({
   consultation,
   onStart,
-  onComplete,
   actionLoading,
 }: {
   consultation: FullConsultationResponse;
   onStart: () => void;
-  onComplete: (note: string, followUpScheduledAt?: string) => void;
   actionLoading: boolean;
 }) {
   const { t } = useTranslation();
-  const [noteDoctor, setNoteDoctor] = useState('');
-  const [needsFollowUp, setNeedsFollowUp] = useState(false);
-  const [followUpDate, setFollowUpDate] = useState('');
-  const [followUpSlot, setFollowUpSlot] = useState('');
-  const [followUpSlots, setFollowUpSlots] = useState<SlotResponse[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-
-  useEffect(() => {
-    if (!needsFollowUp || !followUpDate) { setFollowUpSlots([]); return; }
-    setSlotsLoading(true);
-    setFollowUpSlot('');
-    getSlots(consultation.doctorId, followUpDate)
-      .then(s => setFollowUpSlots(s.filter(sl => sl.available)))
-      .catch(() => setFollowUpSlots([]))
-      .finally(() => setSlotsLoading(false));
-  }, [needsFollowUp, followUpDate]);
 
   return (
     <div className="space-y-4">
@@ -149,95 +138,7 @@ function OverviewTab({
           </button>
         )}
         {consultation.status === 'IN_PROGRESS' && (
-          <div className="w-full space-y-4">
-            <div>
-              <label className="label">{t('workspace.doctorsClosingNote')}</label>
-              <textarea
-                className="input-field"
-                rows={3}
-                value={noteDoctor}
-                onChange={(e) => setNoteDoctor(e.target.value)}
-                placeholder={t('workspace.closingNotePlaceholder')}
-              />
-            </div>
-
-            {/* Follow-up toggle */}
-            <label className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                checked={needsFollowUp}
-                onChange={(e) => { setNeedsFollowUp(e.target.checked); setFollowUpDate(''); setFollowUpSlot(''); }}
-              />
-              <span className="text-sm font-medium text-slate-700">{t('workspace.followUp.needsFollowUp')}</span>
-            </label>
-
-            {/* Follow-up date + slot picker */}
-            {needsFollowUp && (
-              <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-4">
-                <h4 className="text-sm font-semibold text-blue-900">{t('workspace.followUp.scheduleTitle')}</h4>
-                <div>
-                  <label className="label">{t('workspace.followUp.scheduleDate')}</label>
-                  <input
-                    type="date"
-                    className="input-field"
-                    value={followUpDate}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => { setFollowUpDate(e.target.value); setFollowUpSlot(''); }}
-                  />
-                </div>
-                {followUpDate && (
-                  slotsLoading ? (
-                    <p className="text-sm text-slate-400">{t('workspace.followUp.loadingSlots')}</p>
-                  ) : followUpSlots.length === 0 ? (
-                    <p className="text-sm text-slate-500">{t('workspace.followUp.noSlots')}</p>
-                  ) : (
-                    <div>
-                      <label className="label">{t('workspace.followUp.scheduleTime')}</label>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-1">
-                        {followUpSlots.map((slot) => (
-                          <button
-                            key={slot.slotTime}
-                            type="button"
-                            onClick={() => setFollowUpSlot(slot.slotTime)}
-                            className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                              followUpSlot === slot.slotTime
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                            }`}
-                          >
-                            {slot.slotTime}
-                          </button>
-                        ))}
-                      </div>
-                      {followUpSlot && (
-                        <p className="text-xs text-blue-700 mt-2">
-                          {t('workspace.followUp.selectedSlot')}: <strong>{followUpDate} {followUpSlot}</strong>
-                        </p>
-                      )}
-                    </div>
-                  )
-                )}
-              </div>
-            )}
-
-            <button
-              className="btn-primary"
-              onClick={() => {
-                const followUpScheduledAt = (needsFollowUp && followUpDate && followUpSlot)
-                  ? `${followUpDate}T${followUpSlot}:00`
-                  : undefined;
-                onComplete(noteDoctor, followUpScheduledAt);
-              }}
-              disabled={actionLoading || (needsFollowUp && (!followUpDate || !followUpSlot))}
-            >
-              {actionLoading
-                ? '…'
-                : (needsFollowUp && followUpDate && followUpSlot)
-                  ? t('workspace.followUp.completeAndSchedule')
-                  : t('workspace.completeConsultation')}
-            </button>
-          </div>
+          <p className="text-slate-600 text-sm">{t('workspace.consultationInProgress')}</p>
         )}
         {['COMPLETED', 'CANCELLED'].includes(consultation.status) && (
           <p className="text-slate-500 text-sm">
@@ -255,7 +156,7 @@ function OverviewTab({
 // ─── Symptoms Tab ─────────────────────────────────────────────────────────────
 
 function SymptomsTab({ consultation }: { consultation: FullConsultationResponse }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
@@ -266,7 +167,7 @@ function SymptomsTab({ consultation }: { consultation: FullConsultationResponse 
     setAiLoading(true);
     setAiError('');
     try {
-      const data = await aiSuggestDiagnoses(consultation.id);
+      const data = await aiSuggestDiagnoses(consultation.id, i18n.language);
       setAiSuggestions(data);
     } catch {
       setAiError(t('workspace.aiSuggestError'));
@@ -303,7 +204,7 @@ function SymptomsTab({ consultation }: { consultation: FullConsultationResponse 
           <div className="divide-y divide-slate-100">
             {symptoms.map((s, i) => (
               <div key={i} className="card-body flex items-center justify-between text-sm">
-                <span className="font-medium text-slate-800">{s.customText ?? s.symptomName ?? s.symptomId}</span>
+                <span className="font-medium text-slate-800">{s.customText ?? (s.symptomName ? t('symptomName.' + s.symptomName, s.symptomName) : s.symptomId)}</span>
                 <div className="flex items-center gap-3">
                   {s.onsetDate && (
                     <span className="text-slate-500 text-xs">
@@ -371,9 +272,10 @@ function DiagnosisTab({
   consultation: FullConsultationResponse;
   onAdd: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [allDiseases, setAllDiseases] = useState<DiseaseDto[]>([]);
   const [diseaseSearch, setDiseaseSearch] = useState('');
-  const [diseaseResults, setDiseaseResults] = useState<DiseaseDto[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDisease, setSelectedDisease] = useState<DiseaseDto | null>(null);
   const [customDiagnosis, setCustomDiagnosis] = useState('');
   const [icd10Code, setIcd10Code] = useState('');
@@ -382,13 +284,41 @@ function DiagnosisTab({
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const handleSearch = async (q: string) => {
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    try {
+      await deleteDiagnosis(id);
+      setConfirmDeleteId(null);
+      onAdd();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  useEffect(() => {
+    searchDiseases('').then(setAllDiseases).catch(() => {});
+  }, []);
+
+  const categories = [...new Set(allDiseases.map(d => d.category).filter(Boolean))] as string[];
+
+  const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+  const filteredDiseases: DiseaseDto[] = selectedDisease ? [] :
+    (selectedCategory || diseaseSearch.length >= 1)
+      ? allDiseases.filter(d => {
+          const matchesCategory = !selectedCategory || d.category === selectedCategory;
+          const q = normalize(diseaseSearch);
+          const matchesSearch = !diseaseSearch || normalize(d.name).includes(q) || normalize(d.nameRo ?? '').includes(q);
+          return matchesCategory && matchesSearch;
+        })
+      : [];
+
+  const handleSearch = (q: string) => {
     setDiseaseSearch(q);
     setSelectedDisease(null);
-    if (q.length < 2) { setDiseaseResults([]); return; }
-    const data = await searchDiseases(q);
-    setDiseaseResults(data);
   };
 
   const handleSubmit = async () => {
@@ -434,14 +364,39 @@ function DiagnosisTab({
           <div className="divide-y divide-slate-100">
             {(consultation.diagnoses ?? []).map((d) => (
               <div key={d.id} className="card-body text-sm">
-                <div className="font-medium text-slate-800">
-                  {d.diseaseName ?? d.customDiagnosis ?? t('workspace.unknown')}
-                  {d.icd10Code && <span className="ml-2 text-xs text-slate-500">{d.icd10Code}</span>}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-medium text-slate-800">
+                      {d.diseaseName ? (i18n.language === 'ro' ? (d.diseaseNameRo ?? d.diseaseName) : d.diseaseName) : (d.customDiagnosis ?? t('workspace.unknown'))}
+                      {d.icd10Code && <span className="ml-2 text-xs text-slate-500">{d.icd10Code}</span>}
+                    </div>
+                    <div className="text-slate-500 text-xs mt-0.5">
+                      {t('workspace.confidenceLabel')}: {Math.round(d.confidence * 100)}% · {new Date(d.diagnosisDate).toLocaleDateString()}
+                    </div>
+                    {d.notes && <div className="text-slate-600 mt-1">{d.notes}</div>}
+                  </div>
+                  {isEditable && (
+                    confirmDeleteId === d.id ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-xs text-slate-600">{t('workspace.confirmDelete')}</span>
+                        <button
+                          className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                          onClick={() => handleDelete(d.id)}
+                          disabled={deleting}
+                        >
+                          {t('common.yes')}
+                        </button>
+                        <button className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50" onClick={() => setConfirmDeleteId(null)}>
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="text-xs text-red-500 hover:text-red-700 shrink-0" onClick={() => setConfirmDeleteId(d.id)}>
+                        {t('workspace.delete')}
+                      </button>
+                    )
+                  )}
                 </div>
-                <div className="text-slate-500 text-xs mt-0.5">
-                  {t('workspace.confidenceLabel')}: {Math.round(d.confidence * 100)}% · {new Date(d.diagnosisDate).toLocaleDateString()}
-                </div>
-                {d.notes && <div className="text-slate-600 mt-1">{d.notes}</div>}
               </div>
             ))}
           </div>
@@ -459,6 +414,36 @@ function DiagnosisTab({
 
             <div>
               <label className="label">{t('workspace.searchDisease')}</label>
+
+              {/* Category chips */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory(null)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    !selectedCategory
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-slate-600 border-slate-300 hover:border-blue-400'
+                  }`}
+                >
+                  {t('common.all')}
+                </button>
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      selectedCategory === cat
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-slate-600 border-slate-300 hover:border-blue-400'
+                    }`}
+                  >
+                    {t('diseaseCategory.' + cat, cat)}
+                  </button>
+                ))}
+              </div>
+
               <input
                 type="text"
                 className="input-field"
@@ -466,23 +451,31 @@ function DiagnosisTab({
                 onChange={(e) => handleSearch(e.target.value)}
                 placeholder={t('workspace.searchDisease')}
               />
+
               {selectedDisease && (
                 <div className="mt-1 p-2 bg-blue-50 rounded-lg text-sm text-blue-800">
-                  {t('booking.selected')} <strong>{selectedDisease.name}</strong>
+                  {t('booking.selected')} <strong>{i18n.language === 'ro' ? (selectedDisease.nameRo ?? selectedDisease.name) : selectedDisease.name}</strong>
                   {selectedDisease.icd10Code && ` (${selectedDisease.icd10Code})`}
                   <button className="ml-2 text-xs text-blue-600" onClick={() => { setSelectedDisease(null); setDiseaseSearch(''); }}>✕</button>
                 </div>
               )}
-              {diseaseResults.length > 0 && !selectedDisease && (
-                <div className="mt-1 border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                  {diseaseResults.map((d) => (
+
+              {filteredDiseases.length > 0 && (
+                <div className="mt-1 border border-slate-200 rounded-lg shadow-sm overflow-hidden max-h-52 overflow-y-auto">
+                  {filteredDiseases.map((d) => (
                     <button
                       key={d.id}
                       type="button"
-                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 border-b border-slate-100 last:border-0"
-                      onClick={() => { setSelectedDisease(d); setDiseaseResults([]); setDiseaseSearch(d.name); }}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 border-b border-slate-100 last:border-0 flex items-center justify-between"
+                      onClick={() => { setSelectedDisease(d); setDiseaseSearch(i18n.language === 'ro' ? (d.nameRo ?? d.name) : d.name); }}
                     >
-                      {d.name} {d.icd10Code && <span className="text-slate-400 text-xs">({d.icd10Code})</span>}
+                      <span>
+                        {i18n.language === 'ro' ? (d.nameRo ?? d.name) : d.name}
+                        {d.icd10Code && <span className="text-slate-400 text-xs ml-1">({d.icd10Code})</span>}
+                      </span>
+                      {d.category && (
+                        <span className="text-xs text-slate-400 ml-3 shrink-0">{t('diseaseCategory.' + d.category, d.category)}</span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -574,7 +567,7 @@ function PrescriptionTab({
   consultation: FullConsultationResponse;
   onAdd: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [diagnosisId, setDiagnosisId] = useState((consultation.diagnoses ?? [])[0]?.id ?? '');
   const [customInstructions, setCustomInstructions] = useState('');
   const [validFrom, setValidFrom] = useState(new Date().toISOString().slice(0, 10));
@@ -584,6 +577,19 @@ function PrescriptionTab({
   const [medResults, setMedResults] = useState<MedicationDto[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    try {
+      await deletePrescription(id);
+      setConfirmDeleteId(null);
+      onAdd();
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleMedSearch = async (q: string) => {
     setMedSearch(q);
@@ -655,16 +661,41 @@ function PrescriptionTab({
           <div className="divide-y divide-slate-100">
             {(consultation.prescriptions ?? []).map((p) => (
               <div key={p.id} className="card-body text-sm space-y-2">
-                {p.customInstructions && <p className="text-slate-700">{p.customInstructions}</p>}
-                <div className="text-xs text-slate-500">
-                  {t('workspace.validRange')} {new Date(p.validFrom).toLocaleDateString()} – {new Date(p.validUntil).toLocaleDateString()}
-                </div>
-                {(p.items ?? []).map((item) => (
-                  <div key={item.id} className="pl-3 border-l-2 border-blue-200 text-sm">
-                    <div className="font-medium">{item.medicationName ?? t('workspace.searchMedication')}</div>
-                    <div className="text-slate-500">{item.dosage} · {item.frequency} · {item.durationDays}{t('intake.days')} · {t('intake.qty')} {item.quantity}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 space-y-2">
+                    {p.customInstructions && <p className="text-slate-700">{p.customInstructions}</p>}
+                    <div className="text-xs text-slate-500">
+                      {t('workspace.validRange')} {new Date(p.validFrom).toLocaleDateString()} – {new Date(p.validUntil).toLocaleDateString()}
+                    </div>
+                    {(p.items ?? []).map((item) => (
+                      <div key={item.id} className="pl-3 border-l-2 border-blue-200 text-sm">
+                        <div className="font-medium">{item.medicationName ?? t('workspace.searchMedication')}</div>
+                        <div className="text-slate-500">{item.dosage} · {item.frequency} · {item.durationDays}{t('intake.days')} · {t('intake.qty')} {item.quantity}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                  {isEditable && (
+                    confirmDeleteId === p.id ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-xs text-slate-600">{t('workspace.confirmDelete')}</span>
+                        <button
+                          className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                          onClick={() => handleDelete(p.id)}
+                          disabled={deleting}
+                        >
+                          {t('common.yes')}
+                        </button>
+                        <button className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50" onClick={() => setConfirmDeleteId(null)}>
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="text-xs text-red-500 hover:text-red-700 shrink-0" onClick={() => setConfirmDeleteId(p.id)}>
+                        {t('workspace.delete')}
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -689,7 +720,7 @@ function PrescriptionTab({
                 >
                   {(consultation.diagnoses ?? []).map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.diseaseName ?? d.customDiagnosis ?? d.id}
+                      {d.diseaseName ? (i18n.language === 'ro' ? (d.diseaseNameRo ?? d.diseaseName) : d.diseaseName) : (d.customDiagnosis ?? t('workspace.unknown'))}
                     </option>
                   ))}
                 </select>
@@ -815,6 +846,19 @@ function ReferralTab({
   const [urgency, setUrgency] = useState<UrgencyLevel>('ROUTINE');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    try {
+      await deleteReferral(id);
+      setConfirmDeleteId(null);
+      onAdd();
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!destination.trim()) { setFormError(t('workspace.destinationRequired')); return; }
@@ -845,9 +889,34 @@ function ReferralTab({
           <div className="divide-y divide-slate-100">
             {(consultation.referrals ?? []).map((r) => (
               <div key={r.id} className="card-body text-sm">
-                <div className="font-medium text-slate-800">{r.referralType} → {r.destination}</div>
-                <div className="text-slate-600 mt-0.5">{r.reason}</div>
-                <div className="text-xs text-slate-500 mt-0.5">{t('workspace.urgency')}: {r.urgency}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-medium text-slate-800">{r.referralType} → {r.destination}</div>
+                    <div className="text-slate-600 mt-0.5">{r.reason}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{t('workspace.urgency')}: {r.urgency}</div>
+                  </div>
+                  {isEditable && (
+                    confirmDeleteId === r.id ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-xs text-slate-600">{t('workspace.confirmDelete')}</span>
+                        <button
+                          className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                          onClick={() => handleDelete(r.id)}
+                          disabled={deleting}
+                        >
+                          {t('common.yes')}
+                        </button>
+                        <button className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50" onClick={() => setConfirmDeleteId(null)}>
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="text-xs text-red-500 hover:text-red-700 shrink-0" onClick={() => setConfirmDeleteId(r.id)}>
+                        {t('workspace.delete')}
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -1020,8 +1089,8 @@ function DoctorIntakeTab({ consultation, onSaved }: { consultation: FullConsulta
               <div className="mt-1 space-y-1">
                 {consultation.intake.symptoms.map((s, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs">
-                    <span className="font-medium">{s.symptomName ?? s.symptomId}</span>
-                    <span className={s.severity === 'SEVERE' ? 'badge-red' : s.severity === 'MODERATE' ? 'badge-yellow' : 'badge-green'}>{s.severity}</span>
+                    <span className="font-medium">{s.symptomName ? t('symptomName.' + s.symptomName, s.symptomName) : s.symptomId}</span>
+                    <span className={s.severity === 'SEVERE' ? 'badge-red' : s.severity === 'MODERATE' ? 'badge-yellow' : 'badge-green'}>{t('intake.severity.' + s.severity)}</span>
                   </div>
                 ))}
               </div>
@@ -1169,6 +1238,405 @@ function DoctorIntakeTab({ consultation, onSaved }: { consultation: FullConsulta
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Documents Tab ────────────────────────────────────────────────────────────
+
+function DocumentsTab({ consultation }: { consultation: FullConsultationResponse }) {
+  const { t } = useTranslation();
+  const [docs, setDocs] = useState<DocumentResponse[]>(consultation.documents ?? []);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    try {
+      await deleteDocument(id);
+      setDocs((prev) => prev.filter((d) => d.id !== id));
+      setConfirmDeleteId(null);
+    } catch {
+      setUploadError(t('workspace.documents.failedDelete'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setUploadError(t('workspace.documents.onlyPdf'));
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError(t('workspace.documents.tooLarge'));
+      return;
+    }
+    if (docs.length >= 10) {
+      setUploadError(t('workspace.documents.maxReached'));
+      return;
+    }
+
+    setUploadError('');
+    setUploading(true);
+    try {
+      const doc = await uploadDocument(consultation.id, file);
+      setDocs((prev) => [...prev, doc]);
+    } catch {
+      setUploadError(t('workspace.documents.failedUpload'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="card">
+        <div className="card-header flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-900">{t('workspace.documents.title')}</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{t('workspace.documents.subtitle')}</p>
+          </div>
+          <label className={`btn-primary text-sm cursor-pointer ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+            {uploading ? t('workspace.documents.uploading') : t('workspace.documents.upload')}
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              className="hidden"
+              disabled={uploading || docs.length >= 10}
+              onChange={handleFileChange}
+            />
+          </label>
+        </div>
+        <div className="card-body">
+          {uploadError && (
+            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+              {uploadError}
+            </div>
+          )}
+          {docs.length === 0 ? (
+            <p className="text-slate-400 text-sm">{t('workspace.documents.noDocuments')}</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {docs.map((doc) => (
+                <li key={doc.id} className="flex items-center gap-3 py-3">
+                  <span className="text-2xl">📄</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{doc.fileName}</p>
+                    <p className="text-xs text-slate-400">
+                      {formatBytes(doc.fileSize)} · {t('workspace.documents.uploadedBy')}{' '}
+                      {doc.uploaderRole === 'DOCTOR' ? t('workspace.documents.doctor') : t('workspace.documents.patient')}
+                      {' · '}
+                      {new Date(doc.uploadedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    className="btn-secondary text-xs shrink-0"
+                    onClick={() => openDocument(doc.id)}
+                  >
+                    {t('workspace.documents.download')}
+                  </button>
+                  {confirmDeleteId === doc.id ? (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-xs text-slate-600">{t('workspace.confirmDelete')}</span>
+                      <button
+                        className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                        onClick={() => handleDelete(doc.id)}
+                        disabled={deleting}
+                      >
+                        {t('common.yes')}
+                      </button>
+                      <button className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50" onClick={() => setConfirmDeleteId(null)}>
+                        {t('common.cancel')}
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="text-xs text-red-500 hover:text-red-700 shrink-0" onClick={() => setConfirmDeleteId(doc.id)}>
+                      {t('workspace.delete')}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Review Tab ───────────────────────────────────────────────────────────────
+
+function ReviewTab({
+  consultation,
+  onComplete,
+  actionLoading,
+}: {
+  consultation: FullConsultationResponse;
+  onComplete: (note: string, followUpScheduledAt?: string) => void;
+  actionLoading: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const [noteDoctor, setNoteDoctor] = useState('');
+  const [needsFollowUp, setNeedsFollowUp] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpSlot, setFollowUpSlot] = useState('');
+  const [followUpSlots, setFollowUpSlots] = useState<SlotResponse[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!needsFollowUp || !followUpDate) { setFollowUpSlots([]); return; }
+    setSlotsLoading(true);
+    setFollowUpSlot('');
+    getSlots(consultation.doctorId, followUpDate)
+      .then(s => setFollowUpSlots(s.filter(sl => sl.available)))
+      .catch(() => setFollowUpSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [needsFollowUp, followUpDate]);
+
+  const isInProgress = consultation.status === 'IN_PROGRESS';
+
+  const isPastSlot = (slotTime: string) => {
+    if (followUpDate !== new Date().toISOString().slice(0, 10)) return false;
+    const [h, m] = slotTime.split(':').map(Number);
+    const now = new Date();
+    return h * 60 + m <= now.getHours() * 60 + now.getMinutes();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="card">
+        <div className="card-header">
+          <h3 className="font-semibold text-slate-900">{t('workspace.reviewTitle')}</h3>
+          <p className="text-xs text-slate-500 mt-0.5">{t('workspace.reviewSubtitle')}</p>
+        </div>
+      </div>
+
+      {/* Intake Summary */}
+      {consultation.intake ? (
+        <div className="card">
+          <div className="card-header">
+            <h3 className="font-semibold text-slate-900">{t('workspace.patientIntake')}</h3>
+          </div>
+          <div className="card-body text-sm space-y-2">
+            <div><span className="text-slate-500">{t('workspace.chiefComplaint')}: </span><span className="font-medium">{consultation.intake.chiefComplaint}</span></div>
+            {consultation.intake.temperature != null && <div><span className="text-slate-500">{t('workspace.temperature')}: </span><span className="font-medium">{consultation.intake.temperature} °C</span></div>}
+            {consultation.intake.bloodPressure && <div><span className="text-slate-500">{t('workspace.bloodPressure')}: </span><span className="font-medium">{consultation.intake.bloodPressure}</span></div>}
+            {consultation.intake.bloodGlucose != null && <div><span className="text-slate-500">{t('workspace.bloodGlucose')}: </span><span className="font-medium">{consultation.intake.bloodGlucose} mg/dL</span></div>}
+            {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('workspace.symptomOnset')}: </span>{consultation.intake.symptomOnset}</div>}
+            {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('workspace.painIntensity')}: </span>{consultation.intake.painIntensity}</div>}
+            {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('workspace.generalSymptoms')}: </span>{consultation.intake.generalSymptoms}</div>}
+            {consultation.intake.knownConditions && <div><span className="text-slate-500">{t('workspace.knownConditions')}: </span>{consultation.intake.knownConditions}</div>}
+            {consultation.intake.currentMedications && <div><span className="text-slate-500">{t('workspace.currentMedications')}: </span>{consultation.intake.currentMedications}</div>}
+            {consultation.intake.allergies && <div><span className="text-slate-500">{t('workspace.allergies')}: </span>{consultation.intake.allergies}</div>}
+            {consultation.intake.additionalNotes && <div><span className="text-slate-500">{t('workspace.notes')}: </span>{consultation.intake.additionalNotes}</div>}
+            {(consultation.intake.symptoms ?? []).length > 0 && (
+              <div>
+                <span className="text-slate-500">{t('workspace.reportedSymptoms')}: </span>
+                <div className="mt-1 space-y-1">
+                  {consultation.intake.symptoms.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span className="font-medium">{s.symptomName ? t('symptomName.' + s.symptomName, s.symptomName) : s.symptomId}</span>
+                      {s.severity && (
+                        <span className={s.severity === 'SEVERE' ? 'badge-red' : s.severity === 'MODERATE' ? 'badge-yellow' : 'badge-green'}>
+                          {t('intake.severity.' + s.severity)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="card card-body">
+          <p className="text-sm text-slate-500">{t('workspace.noIntakeFilled')}</p>
+        </div>
+      )}
+
+      {/* Diagnoses Summary */}
+      <div className="card">
+        <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.diagnoses')}</h3></div>
+        {(consultation.diagnoses ?? []).length === 0 ? (
+          <div className="card-body"><p className="text-sm text-slate-500">{t('workspace.noDiagnoses')}</p></div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {(consultation.diagnoses ?? []).map((d) => (
+              <div key={d.id} className="card-body text-sm">
+                <div className="font-medium text-slate-800">
+                  {d.diseaseName ? (i18n.language === 'ro' ? (d.diseaseNameRo ?? d.diseaseName) : d.diseaseName) : (d.customDiagnosis ?? t('workspace.unknown'))}
+                  {d.icd10Code && <span className="ml-2 text-xs text-slate-500">{d.icd10Code}</span>}
+                </div>
+                <div className="text-slate-500 text-xs mt-0.5">
+                  {t('workspace.confidenceLabel')}: {Math.round(d.confidence * 100)}% · {new Date(d.diagnosisDate).toLocaleDateString()}
+                </div>
+                {d.notes && <div className="text-slate-600 mt-1">{d.notes}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Prescriptions Summary */}
+      <div className="card">
+        <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.prescriptions')}</h3></div>
+        {(consultation.prescriptions ?? []).length === 0 ? (
+          <div className="card-body"><p className="text-sm text-slate-500">{t('workspace.noPrescriptions')}</p></div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {(consultation.prescriptions ?? []).map((p) => (
+              <div key={p.id} className="card-body text-sm space-y-2">
+                {p.customInstructions && <p className="text-slate-700">{p.customInstructions}</p>}
+                <div className="text-xs text-slate-500">
+                  {t('workspace.validRange')} {new Date(p.validFrom).toLocaleDateString()} – {new Date(p.validUntil).toLocaleDateString()}
+                </div>
+                {(p.items ?? []).map((item) => (
+                  <div key={item.id} className="pl-3 border-l-2 border-blue-200 text-sm">
+                    <div className="font-medium">{item.medicationName ?? t('workspace.searchMedication')}</div>
+                    <div className="text-slate-500">{item.dosage} · {item.frequency} · {item.durationDays}{t('intake.days')} · {t('intake.qty')} {item.quantity}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Referrals Summary */}
+      <div className="card">
+        <div className="card-header"><h3 className="font-semibold text-slate-900">{t('workspace.referrals')}</h3></div>
+        {(consultation.referrals ?? []).length === 0 ? (
+          <div className="card-body"><p className="text-sm text-slate-500">{t('workspace.noReferrals')}</p></div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {(consultation.referrals ?? []).map((r) => (
+              <div key={r.id} className="card-body text-sm">
+                <div className="font-medium text-slate-800">{r.referralType} → {r.destination}</div>
+                <div className="text-slate-600 mt-0.5">{r.reason}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t('workspace.urgency')}: {r.urgency}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Complete Actions — only for IN_PROGRESS */}
+      {isInProgress && (
+        <div className="card card-body space-y-4">
+          <div>
+            <label className="label">{t('workspace.doctorsClosingNote')}</label>
+            <textarea
+              className="input-field"
+              rows={3}
+              value={noteDoctor}
+              onChange={(e) => setNoteDoctor(e.target.value)}
+              placeholder={t('workspace.closingNotePlaceholder')}
+            />
+          </div>
+
+          {/* Follow-up toggle */}
+          <label className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              checked={needsFollowUp}
+              onChange={(e) => { setNeedsFollowUp(e.target.checked); setFollowUpDate(''); setFollowUpSlot(''); }}
+            />
+            <span className="text-sm font-medium text-slate-700">{t('workspace.followUp.needsFollowUp')}</span>
+          </label>
+
+          {/* Follow-up date + slot picker */}
+          {needsFollowUp && (
+            <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-4">
+              <h4 className="text-sm font-semibold text-blue-900">{t('workspace.followUp.scheduleTitle')}</h4>
+              <div>
+                <label className="label">{t('workspace.followUp.scheduleDate')}</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={followUpDate}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => { setFollowUpDate(e.target.value); setFollowUpSlot(''); }}
+                />
+              </div>
+              {followUpDate && (
+                slotsLoading ? (
+                  <p className="text-sm text-slate-400">{t('workspace.followUp.loadingSlots')}</p>
+                ) : followUpSlots.length === 0 ? (
+                  <p className="text-sm text-slate-500">{t('workspace.followUp.noSlots')}</p>
+                ) : (
+                  <div>
+                    <label className="label">{t('workspace.followUp.scheduleTime')}</label>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-1">
+                      {followUpSlots.map((slot) => {
+                        const past = isPastSlot(slot.slotTime);
+                        return (
+                          <button
+                            key={slot.slotTime}
+                            type="button"
+                            onClick={() => { if (!past) setFollowUpSlot(slot.slotTime); }}
+                            disabled={past}
+                            className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                              past
+                                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                : followUpSlot === slot.slotTime
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            {slot.slotTime}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {followUpSlot && (
+                      <p className="text-xs text-blue-700 mt-2">
+                        {t('workspace.followUp.selectedSlot')}: <strong>{followUpDate} {followUpSlot}</strong>
+                      </p>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          <button
+            className="btn-primary w-full"
+            onClick={() => {
+              const followUpScheduledAt = (needsFollowUp && followUpDate && followUpSlot)
+                ? `${followUpDate}T${followUpSlot}:00`
+                : undefined;
+              onComplete(noteDoctor, followUpScheduledAt);
+            }}
+            disabled={actionLoading || (needsFollowUp && (!followUpDate || !followUpSlot))}
+          >
+            {actionLoading
+              ? '…'
+              : (needsFollowUp && followUpDate && followUpSlot)
+                ? t('workspace.followUp.completeAndSchedule')
+                : t('workspace.completeConsultation')}
+          </button>
+        </div>
+      )}
+
+      {['COMPLETED', 'CANCELLED'].includes(consultation.status) && (
+        <div className="card card-body">
+          <p className="text-slate-500 text-sm">{t('status.' + consultation.status)}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1335,7 +1803,15 @@ export default function ConsultationWorkspacePage() {
     { key: 'diagnosis', label: t('workspace.tabs.diagnosis') },
     { key: 'prescription', label: t('workspace.tabs.prescription') },
     { key: 'referral', label: t('workspace.tabs.referral') },
+    { key: 'documents', label: t('workspace.tabs.documents') },
+    { key: 'review', label: t('workspace.tabs.review') },
   ];
+
+  const currentIndex = tabs.findIndex((tab) => tab.key === activeTab);
+  const isFirst = currentIndex === 0;
+  const isLast = currentIndex === tabs.length - 1;
+  const goNext = () => { if (!isLast) setActiveTab(tabs[currentIndex + 1].key); };
+  const goBack = () => { if (!isFirst) setActiveTab(tabs[currentIndex - 1].key); };
 
   return (
     <div className="space-y-6">
@@ -1400,7 +1876,6 @@ export default function ConsultationWorkspacePage() {
             <OverviewTab
               consultation={consultation}
               onStart={handleStart}
-              onComplete={handleComplete}
               actionLoading={actionLoading}
             />
             <SeriesNav consultation={consultation} onReload={load} />
@@ -1413,6 +1888,26 @@ export default function ConsultationWorkspacePage() {
         {activeTab === 'diagnosis' && <DiagnosisTab consultation={consultation} onAdd={load} />}
         {activeTab === 'prescription' && <PrescriptionTab consultation={consultation} onAdd={load} />}
         {activeTab === 'referral' && <ReferralTab consultation={consultation} onAdd={load} />}
+        {activeTab === 'documents' && <DocumentsTab consultation={consultation} />}
+        {activeTab === 'review' && (
+          <ReviewTab
+            consultation={consultation}
+            onComplete={handleComplete}
+            actionLoading={actionLoading}
+          />
+        )}
+
+        {/* Back / Next navigation */}
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200">
+          {!isFirst ? (
+            <button className="btn-secondary" onClick={goBack}>← {t('common.back')}</button>
+          ) : (
+            <div />
+          )}
+          {!isLast && (
+            <button className="btn-primary" onClick={goNext}>{t('workspace.next')} →</button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -4,21 +4,21 @@ import { useAuthStore } from '../../store/authStore';
 import { getDoctorSchedule, updateDoctorSchedule } from '../../api/userApi';
 import type { ScheduleEntry, CreateScheduleEntry, DayOfWeek } from '../../types';
 
-const DAY_KEYS: Record<DayOfWeek, string> = {
-  1: 'Monday',
-  2: 'Tuesday',
-  3: 'Wednesday',
-  4: 'Thursday',
-  5: 'Friday',
-  6: 'Saturday',
-  7: 'Sunday',
-};
-
 const DAYS: DayOfWeek[] = [1, 2, 3, 4, 5, 6, 7];
 
 export default function ManageSchedulePage() {
   const { profileId } = useAuthStore();
   const { t } = useTranslation();
+
+  const DAY_KEYS: Record<DayOfWeek, string> = {
+    1: t('schedule.monday'),
+    2: t('schedule.tuesday'),
+    3: t('schedule.wednesday'),
+    4: t('schedule.thursday'),
+    5: t('schedule.friday'),
+    6: t('schedule.saturday'),
+    7: t('schedule.sunday'),
+  };
 
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);

@@ -20,4 +20,7 @@ public interface ConsultationRepository extends JpaRepository<Consultation, UUID
     List<Consultation> findByDoctorId(UUID doctorId);
     List<Consultation> findByDoctorIdAndPatientId(UUID doctorId, UUID patientId);
     java.util.Optional<Consultation> findByNextConsultationId(UUID nextConsultationId);
+
+    @Query("SELECT c FROM Consultation c WHERE c.status IN ('PENDING', 'CONFIRMED') AND c.scheduledAt IS NOT NULL AND c.scheduledAt < :now")
+    List<Consultation> findOverdueConsultations(@Param("now") LocalDateTime now);
 }

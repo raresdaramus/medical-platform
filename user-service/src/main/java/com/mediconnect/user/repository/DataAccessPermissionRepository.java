@@ -5,4 +5,5 @@ import java.util.List;
 import java.util.UUID;
 public interface DataAccessPermissionRepository extends JpaRepository<DataAccessPermission, UUID> {
     List<DataAccessPermission> findByPatientIdAndIsActiveTrue(UUID patientId);
+    List<DataAccessPermission> findByGranteeIdAndIsActiveTrue(UUID granteeId);
 }

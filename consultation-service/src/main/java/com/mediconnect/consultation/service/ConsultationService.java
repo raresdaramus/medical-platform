@@ -23,10 +23,12 @@ public class ConsultationService {
     private final SymptomRepository ontologySymptomRepository;
     private final PatientIntakeFormRepository intakeFormRepository;
     private final DiagnosisRepository diagnosisRepository;
+    private final DiseaseRepository diseaseRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final PrescriptionItemRepository prescriptionItemRepository;
     private final ReferralRepository referralRepository;
     private final MedicalRecordEntryRepository medicalRecordEntryRepository;
+    private final ConsultationDocumentRepository documentRepository;
     private final SchedulingService schedulingService;
     private final UserClient userClient;
     private final GroqService groqService;
@@ -36,10 +38,12 @@ public class ConsultationService {
                                SymptomRepository ontologySymptomRepository,
                                PatientIntakeFormRepository intakeFormRepository,
                                DiagnosisRepository diagnosisRepository,
+                               DiseaseRepository diseaseRepository,
                                PrescriptionRepository prescriptionRepository,
                                PrescriptionItemRepository prescriptionItemRepository,
                                ReferralRepository referralRepository,
                                MedicalRecordEntryRepository medicalRecordEntryRepository,
+                               ConsultationDocumentRepository documentRepository,
                                SchedulingService schedulingService,
                                UserClient userClient,
                                GroqService groqService) {
@@ -48,10 +52,12 @@ public class ConsultationService {
         this.ontologySymptomRepository = ontologySymptomRepository;
         this.intakeFormRepository = intakeFormRepository;
         this.diagnosisRepository = diagnosisRepository;
+        this.diseaseRepository = diseaseRepository;
         this.prescriptionRepository = prescriptionRepository;
         this.prescriptionItemRepository = prescriptionItemRepository;
         this.referralRepository = referralRepository;
         this.medicalRecordEntryRepository = medicalRecordEntryRepository;
+        this.documentRepository = documentRepository;
         this.schedulingService = schedulingService;
         this.userClient = userClient;
         this.groqService = groqService;
@@ -245,7 +251,16 @@ public class ConsultationService {
             .orElse(null);
 
         List<DiagnosisResponse> diagnoses = diagnosisRepository.findByConsultationId(consultationId).stream()
-            .map(d -> new DiagnosisResponse(d.getId(), d.getConsultationId(), d.getDiseaseId(), d.getCustomDiagnosis(), d.getIcd10Code(), parseConfidence(d.getConfidence()), d.getDiagnosisDate(), d.getNotes()))
+            .map(d -> {
+                Disease disease = d.getDiseaseId() != null
+                    ? diseaseRepository.findById(d.getDiseaseId()).orElse(null)
+                    : null;
+                String diseaseName = disease != null ? disease.getName() : null;
+                String diseaseNameRo = disease != null ? disease.getNameRo() : null;
+                return new DiagnosisResponse(d.getId(), d.getConsultationId(), d.getDiseaseId(),
+                    diseaseName, diseaseNameRo, d.getCustomDiagnosis(), d.getIcd10Code(),
+                    parseConfidence(d.getConfidence()), d.getDiagnosisDate(), d.getNotes());
+            })
             .collect(Collectors.toList());
 
         List<PrescriptionResponse> prescriptions = prescriptionRepository.findByConsultationId(consultationId).stream()
@@ -264,10 +279,15 @@ public class ConsultationService {
         UUID previousConsultationId = consultationRepository.findByNextConsultationId(consultationId)
             .map(Consultation::getId).orElse(null);
 
+        List<DocumentResponse> documents = documentRepository.findByConsultationIdOrderByUploadedAtAsc(consultationId)
+            .stream().map(d -> new DocumentResponse(d.getId(), d.getConsultationId(), d.getUploadedBy(),
+                d.getUploaderRole(), d.getFileName(), d.getFileSize(), d.getUploadedAt()))
+            .collect(Collectors.toList());
+
         return new FullConsultationResponse(c.getId(), c.getDoctorId(), c.getPatientId(), c.getStatus(),
             c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(),
             c.getSlotDurationMinutes(), intakeFormDto, diagnoses, prescriptions, referrals, c.getNotesDoctor(),
-            c.getNextConsultationId(), previousConsultationId);
+            c.getNextConsultationId(), previousConsultationId, documents);
     }
 
     public ConsultationResponse startConsultation(UUID consultationId, UUID accountId) {
@@ -292,8 +312,14 @@ public class ConsultationService {
         diagnosis.setDiagnosisDate(req.diagnosisDate());
         diagnosis.setNotes(req.notes());
         diagnosis = diagnosisRepository.save(diagnosis);
+        Disease diseaseEntity = diagnosis.getDiseaseId() != null
+            ? diseaseRepository.findById(diagnosis.getDiseaseId()).orElse(null)
+            : null;
+        String diseaseName = diseaseEntity != null ? diseaseEntity.getName() : null;
+        String diseaseNameRo = diseaseEntity != null ? diseaseEntity.getNameRo() : null;
         return new DiagnosisResponse(diagnosis.getId(), diagnosis.getConsultationId(), diagnosis.getDiseaseId(),
-            diagnosis.getCustomDiagnosis(), diagnosis.getIcd10Code(), parseConfidence(diagnosis.getConfidence()), diagnosis.getDiagnosisDate(), diagnosis.getNotes());
+            diseaseName, diseaseNameRo, diagnosis.getCustomDiagnosis(), diagnosis.getIcd10Code(),
+            parseConfidence(diagnosis.getConfidence()), diagnosis.getDiagnosisDate(), diagnosis.getNotes());
     }
 
     public PrescriptionResponse addPrescription(UUID consultationId, UUID accountId, PrescriptionRequest req) {
@@ -429,7 +455,7 @@ public class ConsultationService {
     }
 
     @Transactional(readOnly = true)
-    public List<AiSuggestionResponse> aiSuggest(UUID consultationId) {
+    public List<AiSuggestionResponse> aiSuggest(UUID consultationId, String lang) {
         getConsultationById(consultationId);
 
         StringBuilder context = new StringBuilder();
@@ -484,7 +510,35 @@ public class ConsultationService {
             throw new ResourceNotFoundException("No patient data available for AI suggestion on consultation: " + consultationId);
         }
 
-        return groqService.suggestDiagnoses(context.toString());
+        return groqService.suggestDiagnoses(context.toString(), lang);
+    }
+
+    public void deleteDiagnosis(UUID diagnosisId, UUID accountId) {
+        Diagnosis diagnosis = diagnosisRepository.findById(diagnosisId)
+            .orElseThrow(() -> new ResourceNotFoundException("Diagnosis not found: " + diagnosisId));
+        Consultation c = getConsultationById(diagnosis.getConsultationId());
+        UUID doctorProfileId = resolveDoctorProfileId(accountId);
+        if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized");
+        diagnosisRepository.delete(diagnosis);
+    }
+
+    public void deletePrescription(UUID prescriptionId, UUID accountId) {
+        Prescription prescription = prescriptionRepository.findById(prescriptionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Prescription not found: " + prescriptionId));
+        Consultation c = getConsultationById(prescription.getConsultationId());
+        UUID doctorProfileId = resolveDoctorProfileId(accountId);
+        if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized");
+        prescriptionItemRepository.deleteAll(prescriptionItemRepository.findByPrescriptionId(prescriptionId));
+        prescriptionRepository.delete(prescription);
+    }
+
+    public void deleteReferral(UUID referralId, UUID accountId) {
+        Referral referral = referralRepository.findById(referralId)
+            .orElseThrow(() -> new ResourceNotFoundException("Referral not found: " + referralId));
+        Consultation c = getConsultationById(referral.getConsultationId());
+        UUID doctorProfileId = resolveDoctorProfileId(accountId);
+        if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized");
+        referralRepository.delete(referral);
     }
 
     private Consultation getConsultationById(UUID id) {

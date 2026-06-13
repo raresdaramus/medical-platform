@@ -16,7 +16,8 @@
       "Bash(docker-compose build *)",
       "Bash(Get-ChildItem -Recurse -Path \"consultation-service/src/main/java\" -File)",
       "Bash(Select-Object FullName)",
-      "PowerShell(Get-Content *)"
+      "PowerShell(Get-Content *)",
+      "Bash(powershell *)"
     ]
   }
 }

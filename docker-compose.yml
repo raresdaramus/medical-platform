@@ -8,6 +8,7 @@ volumes:
   postgres-auth-data:
   postgres-users-data:
   postgres-consult-data:
+  consultation-uploads:
 
 services:
 
@@ -124,6 +125,9 @@ services:
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
       GROQ_API_KEY: ${GROQ_API_KEY}
+      UPLOAD_DIR: /uploads
+    volumes:
+      - consultation-uploads:/uploads
     depends_on:
       postgres-consult:
         condition: service_healthy

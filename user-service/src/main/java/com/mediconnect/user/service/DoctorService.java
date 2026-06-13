@@ -6,6 +6,7 @@ import com.mediconnect.user.entity.DoctorSchedule;
 import com.mediconnect.user.exception.ResourceNotFoundException;
 import com.mediconnect.user.exception.UnauthorizedException;
 import com.mediconnect.user.mapper.UserMapper;
+import com.mediconnect.user.repository.DataAccessPermissionRepository;
 import com.mediconnect.user.repository.DoctorRepository;
 import com.mediconnect.user.repository.DoctorScheduleRepository;
 import com.mediconnect.user.repository.PatientDoctorAssignmentRepository;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -26,17 +28,20 @@ public class DoctorService {
     private final DoctorScheduleRepository scheduleRepository;
     private final PatientDoctorAssignmentRepository assignmentRepository;
     private final PatientRepository patientRepository;
+    private final DataAccessPermissionRepository permissionRepository;
     private final UserMapper userMapper;
 
     public DoctorService(DoctorRepository doctorRepository,
                          DoctorScheduleRepository scheduleRepository,
                          PatientDoctorAssignmentRepository assignmentRepository,
                          PatientRepository patientRepository,
+                         DataAccessPermissionRepository permissionRepository,
                          UserMapper userMapper) {
         this.doctorRepository = doctorRepository;
         this.scheduleRepository = scheduleRepository;
         this.assignmentRepository = assignmentRepository;
         this.patientRepository = patientRepository;
+        this.permissionRepository = permissionRepository;
         this.userMapper = userMapper;
     }
 
@@ -88,6 +93,23 @@ public class DoctorService {
             .map(assignment -> patientRepository.findById(assignment.getPatientId()).orElse(null))
             .filter(p -> p != null)
             .map(userMapper::toPatientResponse)
+            .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PermittedPatientResponse> getPermittedPatients(UUID doctorId) {
+        LocalDateTime now = LocalDateTime.now();
+        return permissionRepository.findByGranteeIdAndIsActiveTrue(doctorId)
+            .stream()
+            .filter(p -> p.getExpiresAt() == null || p.getExpiresAt().isAfter(now))
+            .map(permission -> patientRepository.findById(permission.getPatientId())
+                .map(patient -> new PermittedPatientResponse(
+                    userMapper.toPatientResponse(patient),
+                    permission.getPermissionType(),
+                    permission.getExpiresAt()
+                ))
+                .orElse(null))
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
     }
 

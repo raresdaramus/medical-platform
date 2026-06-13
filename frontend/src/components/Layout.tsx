@@ -22,6 +22,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { to: '/doctor/consultations', label: t('nav.consultations') },
     { to: '/doctor/patients', label: t('nav.myPatients') },
     { to: '/doctor/schedule', label: t('nav.mySchedule') },
+    { to: '/doctor/statistics', label: t('nav.statistics') },
   ];
 
   const links = role === 'PATIENT' ? patientLinks : role === 'DOCTOR' ? doctorLinks : [];

@@ -9,6 +9,7 @@ import type {
   AssignDoctorRequest,
   PermissionResponse,
   CreatePermissionRequest,
+  PermittedPatientResponse,
   FamilyDoctorRequestResponse,
   SendFamilyDoctorRequestRequest,
   ApiSuccess,
@@ -81,6 +82,11 @@ export const assignDoctor = async (data: AssignDoctorRequest): Promise<void> => 
 
 export const getDoctorPatients = async (doctorId: string): Promise<PatientResponse[]> => {
   const response = await axiosInstance.get<ApiSuccess<PatientResponse[]>>(`/api/users/doctors/${doctorId}/patients`);
+  return response.data.data;
+};
+
+export const getPermittedPatients = async (doctorId: string): Promise<PermittedPatientResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<PermittedPatientResponse[]>>(`/api/users/doctors/${doctorId}/permitted-patients`);
   return response.data.data;
 };
 

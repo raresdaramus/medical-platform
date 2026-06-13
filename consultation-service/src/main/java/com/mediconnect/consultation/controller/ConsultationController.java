@@ -171,12 +171,43 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.ok(consultationService.getMedicalRecord(patientId, token.accountId(), token.role())));
     }
 
+    @DeleteMapping("/diagnosis/{diagnosisId}")
+    public ResponseEntity<ApiResponse<Void>> deleteDiagnosis(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID diagnosisId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        consultationService.deleteDiagnosis(diagnosisId, token.accountId());
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @DeleteMapping("/prescription/{prescriptionId}")
+    public ResponseEntity<ApiResponse<Void>> deletePrescription(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID prescriptionId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        consultationService.deletePrescription(prescriptionId, token.accountId());
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @DeleteMapping("/referral/{referralId}")
+    public ResponseEntity<ApiResponse<Void>> deleteReferral(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID referralId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
+        consultationService.deleteReferral(referralId, token.accountId());
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
     @PostMapping("/{consultationId}/ai-suggest")
     public ResponseEntity<ApiResponse<List<AiSuggestionResponse>>> aiSuggest(
             @RequestHeader("Authorization") String auth,
-            @PathVariable UUID consultationId) {
+            @PathVariable UUID consultationId,
+            @RequestParam(defaultValue = "en") String lang) {
         ValidateTokenResponse token = authClient.validateToken(auth);
         if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Doctors only");
-        return ResponseEntity.ok(ApiResponse.ok(consultationService.aiSuggest(consultationId)));
+        return ResponseEntity.ok(ApiResponse.ok(consultationService.aiSuggest(consultationId, lang)));
     }
 }
