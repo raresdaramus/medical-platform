@@ -1,6 +1,7 @@
 package com.mediconnect.user.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -55,4 +56,12 @@ public class DataAccessPermission {
     public void setRevokedAt(LocalDateTime revokedAt) { this.revokedAt = revokedAt; }
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+
+    /**
+     * Whether the permission is still valid today. Expiry is treated as end-of-day:
+     * a permission expiring on a given date stays valid for the whole of that date.
+     */
+    public boolean isNotExpired() {
+        return expiresAt == null || !expiresAt.toLocalDate().isBefore(LocalDate.now());
+    }
 }

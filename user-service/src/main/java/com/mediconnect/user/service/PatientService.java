@@ -111,7 +111,10 @@ public class PatientService {
     @Transactional(readOnly = true)
     public List<PermissionResponse> getPermissions(UUID patientId) {
         return permissionRepository.findByPatientIdAndIsActiveTrue(patientId)
-            .stream().map(this::toPermissionResponse).collect(Collectors.toList());
+            .stream()
+            .filter(DataAccessPermission::isNotExpired)
+            .map(this::toPermissionResponse)
+            .collect(Collectors.toList());
     }
 
     /** Maps a permission to its response, resolving the grantee doctor's display name. */

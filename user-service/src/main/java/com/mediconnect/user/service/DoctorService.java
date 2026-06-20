@@ -1,6 +1,7 @@
 package com.mediconnect.user.service;
 
 import com.mediconnect.user.dto.*;
+import com.mediconnect.user.entity.DataAccessPermission;
 import com.mediconnect.user.entity.Doctor;
 import com.mediconnect.user.entity.DoctorSchedule;
 import com.mediconnect.user.entity.Patient;
@@ -128,18 +129,15 @@ public class DoctorService {
             .orElse(false);
         if (isFamilyDoctor) return true;
 
-        LocalDateTime now = LocalDateTime.now();
         return permissionRepository.findByGranteeIdAndIsActiveTrue(doctor.getId()).stream()
-            .anyMatch(p -> p.getPatientId().equals(patient.getId())
-                && (p.getExpiresAt() == null || p.getExpiresAt().isAfter(now)));
+            .anyMatch(p -> p.getPatientId().equals(patient.getId()) && p.isNotExpired());
     }
 
     @Transactional(readOnly = true)
     public List<PermittedPatientResponse> getPermittedPatients(UUID doctorId) {
-        LocalDateTime now = LocalDateTime.now();
         return permissionRepository.findByGranteeIdAndIsActiveTrue(doctorId)
             .stream()
-            .filter(p -> p.getExpiresAt() == null || p.getExpiresAt().isAfter(now))
+            .filter(DataAccessPermission::isNotExpired)
             .map(permission -> patientRepository.findById(permission.getPatientId())
                 .map(patient -> new PermittedPatientResponse(
                     userMapper.toPatientResponse(patient),
