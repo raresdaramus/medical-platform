@@ -188,8 +188,26 @@ export const deletePrescription = async (prescriptionId: string): Promise<void> 
   await axiosInstance.delete(`/api/consultations/prescription/${prescriptionId}`);
 };
 
+export const openPrescriptionPdf = async (prescriptionId: string): Promise<void> => {
+  const response = await axiosInstance.get(
+    `/api/consultations/prescription/${prescriptionId}/pdf`,
+    { responseType: 'blob' }
+  );
+  const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+  window.open(url, '_blank');
+};
+
 export const deleteReferral = async (referralId: string): Promise<void> => {
   await axiosInstance.delete(`/api/consultations/referral/${referralId}`);
+};
+
+export const openReferralPdf = async (referralId: string): Promise<void> => {
+  const response = await axiosInstance.get(
+    `/api/consultations/referral/${referralId}/pdf`,
+    { responseType: 'blob' }
+  );
+  const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+  window.open(url, '_blank');
 };
 
 export const aiSuggestDiagnoses = async (consultationId: string, lang: string): Promise<AiSuggestion[]> => {

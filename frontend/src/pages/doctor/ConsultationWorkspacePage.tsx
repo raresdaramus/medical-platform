@@ -5,6 +5,8 @@ import {
   getConsultation,
   startConsultation,
   completeConsultation,
+  confirmConsultation,
+  cancelConsultation,
   addDiagnosis,
   addPrescription,
   addReferral,
@@ -22,15 +24,19 @@ import {
   deleteDiagnosis,
   deletePrescription,
   deleteReferral,
+  openPrescriptionPdf,
+  openReferralPdf,
 } from '../../api/consultationApi';
 import type {
   FullConsultationResponse,
   ConsultationStatus,
   DiagnosisRequest,
+  DiagnosisResponse,
   PrescriptionRequest,
   PrescriptionItem,
   ReferralRequest,
   ReferralType,
+  AcuteChronic,
   UrgencyLevel,
   DiseaseDto,
   MedicationDto,
@@ -44,6 +50,43 @@ import type {
 } from '../../types';
 
 type Tab = 'overview' | 'intake' | 'symptoms' | 'diagnosis' | 'prescription' | 'referral' | 'documents' | 'review';
+
+type TFn = ReturnType<typeof useTranslation>['t'];
+
+// Canonical (English) pain-intensity values stored on the backend, paired with the
+// i18n key used to display the localized label.
+const PAIN_INTENSITY_OPTIONS = [
+  { value: 'No pain', key: 'none' },
+  { value: 'Mild', key: 'mild' },
+  { value: 'Moderate', key: 'moderate' },
+  { value: 'Severe', key: 'severe' },
+];
+
+/** Translates a stored canonical pain-intensity value to the active locale. */
+function painIntensityLabel(t: TFn, value: string): string {
+  const opt = PAIN_INTENSITY_OPTIONS.find((o) => o.value === value);
+  return opt ? t('intake.painIntensity.' + opt.key) : value;
+}
+
+/** Translates a stored symptom-onset code (e.g. "today") to the active locale; falls back to raw text. */
+function onsetLabel(t: TFn, value: string): string {
+  return t('intake.onset.' + value, { defaultValue: value });
+}
+
+/** Translates a stored body-zone / category code (e.g. "eyes") to the active locale; falls back to raw text. */
+function bodyZoneLabel(t: TFn, value: string): string {
+  return t('booking.cat.' + value, { defaultValue: value });
+}
+
+/** Translates a comma-separated list of canonical symptom names to the active locale. */
+function generalSymptomsLabel(t: TFn, csv: string): string {
+  return csv
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => t('symptomName.' + s, { defaultValue: s }))
+    .join(', ');
+}
 
 function StatusBadge({ status, t }: { status: ConsultationStatus; t: (k: string) => string }) {
   const map: Record<string, string> = {
@@ -62,10 +105,14 @@ function StatusBadge({ status, t }: { status: ConsultationStatus; t: (k: string)
 function OverviewTab({
   consultation,
   onStart,
+  onConfirm,
+  onCancel,
   actionLoading,
 }: {
   consultation: FullConsultationResponse;
   onStart: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
   actionLoading: boolean;
 }) {
   const { t } = useTranslation();
@@ -114,13 +161,13 @@ function OverviewTab({
             {consultation.intake.temperature != null && <div><span className="text-slate-500">{t('workspace.temperature')}: </span><span className="font-medium">{consultation.intake.temperature} °C</span></div>}
             {consultation.intake.bloodPressure && <div><span className="text-slate-500">{t('workspace.bloodPressure')}: </span><span className="font-medium">{consultation.intake.bloodPressure}</span></div>}
             {consultation.intake.bloodGlucose != null && <div><span className="text-slate-500">{t('workspace.bloodGlucose')}: </span><span className="font-medium">{consultation.intake.bloodGlucose} mg/dL</span></div>}
-            {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('workspace.symptomOnset')}: </span>{consultation.intake.symptomOnset}</div>}
-            {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('workspace.painIntensity')}: </span>{consultation.intake.painIntensity}</div>}
+            {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('workspace.symptomOnset')}: </span>{onsetLabel(t, consultation.intake.symptomOnset)}</div>}
+            {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('workspace.painIntensity')}: </span>{painIntensityLabel(t, consultation.intake.painIntensity)}</div>}
             {consultation.intake.painType && <div><span className="text-slate-500">{t('workspace.painType')}: </span>{consultation.intake.painType}</div>}
             {consultation.intake.hadSymptomsBefore != null && <div><span className="text-slate-500">{t('workspace.hadBefore')}: </span>{consultation.intake.hadSymptomsBefore ? t('common.yes') : t('common.no')}</div>}
-            {consultation.intake.bodyZone && <div><span className="text-slate-500">{t('workspace.bodyZone')}: </span><span className="font-medium">{consultation.intake.bodyZone}</span></div>}
+            {consultation.intake.bodyZone && <div><span className="text-slate-500">{t('workspace.bodyZone')}: </span><span className="font-medium">{bodyZoneLabel(t, consultation.intake.bodyZone)}</span></div>}
             {consultation.intake.bodyZoneSymptoms && <div><span className="text-slate-500">{t('workspace.zoneSymptoms')}: </span>{consultation.intake.bodyZoneSymptoms}</div>}
-            {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('workspace.generalSymptoms')}: </span>{consultation.intake.generalSymptoms}</div>}
+            {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('workspace.generalSymptoms')}: </span>{generalSymptomsLabel(t, consultation.intake.generalSymptoms)}</div>}
             {consultation.intake.knownConditions && <div><span className="text-slate-500">{t('workspace.knownConditions')}: </span>{consultation.intake.knownConditions}</div>}
             {consultation.intake.medicationsTakenText && <div><span className="text-slate-500">{t('workspace.medsTaken')}: </span>{consultation.intake.medicationsTakenText}</div>}
             {consultation.intake.currentMedications && <div><span className="text-slate-500">{t('workspace.currentMedications')}: </span>{consultation.intake.currentMedications}</div>}
@@ -146,7 +193,17 @@ function OverviewTab({
           </p>
         )}
         {consultation.status === 'PENDING' && (
-          <p className="text-slate-500 text-sm">{t('workspace.waitingConfirmation')}</p>
+          <div className="space-y-3 w-full">
+            <p className="text-slate-500 text-sm">{t('workspace.waitingConfirmation')}</p>
+            <div className="flex flex-wrap gap-3">
+              <button className="btn-success" onClick={onConfirm} disabled={actionLoading}>
+                {actionLoading ? '…' : t('workspace.acceptConsultation')}
+              </button>
+              <button className="btn-danger" onClick={onCancel} disabled={actionLoading}>
+                {actionLoading ? '…' : t('workspace.declineConsultation')}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -353,7 +410,7 @@ function DiagnosisTab({
     }
   };
 
-  const isEditable = ['IN_PROGRESS', 'CONFIRMED'].includes(consultation.status);
+  const isEditable = consultation.status === 'IN_PROGRESS';
 
   return (
     <div className="space-y-4">
@@ -560,6 +617,26 @@ function DiagnosisTab({
 
 // ─── Prescription Tab ─────────────────────────────────────────────────────────
 
+const SCHEDULE_DAILY = 'DAILY';
+const SCHEDULE_ALT = 'EVERY_OTHER_DAY';
+
+type PrescriptionDraftItem = PrescriptionItem & { medName?: string; tablets?: number; schedule?: string };
+
+// Total tablets = tablets per intake × days (× ½ when taken every other day).
+function computeQuantity(tablets: number, schedule: string, days: number): number {
+  const t = Number.isFinite(tablets) && tablets > 0 ? tablets : 0;
+  const d = Number.isFinite(days) && days > 0 ? days : 0;
+  if (schedule === SCHEDULE_ALT) return Math.ceil((t * d) / 2);
+  return t * d;
+}
+
+// Human-readable Romanian frequency stored on the prescription (used in the PDF).
+function buildFrequency(tablets: number, schedule: string): string {
+  const unit = tablets === 1 ? 'comprimat' : 'comprimate';
+  const when = schedule === SCHEDULE_ALT ? 'la 2 zile' : 'pe zi';
+  return `${tablets} ${unit} ${when}`;
+}
+
 function PrescriptionTab({
   consultation,
   onAdd,
@@ -572,7 +649,7 @@ function PrescriptionTab({
   const [customInstructions, setCustomInstructions] = useState('');
   const [validFrom, setValidFrom] = useState(new Date().toISOString().slice(0, 10));
   const [validUntil, setValidUntil] = useState('');
-  const [items, setItems] = useState<(PrescriptionItem & { medName?: string })[]>([]);
+  const [items, setItems] = useState<PrescriptionDraftItem[]>([]);
   const [medSearch, setMedSearch] = useState('');
   const [medResults, setMedResults] = useState<MedicationDto[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -593,21 +670,26 @@ function PrescriptionTab({
 
   const handleMedSearch = async (q: string) => {
     setMedSearch(q);
-    if (q.length < 2) { setMedResults([]); return; }
+    if (q.length < 1) { setMedResults([]); return; }
     const data = await searchMedications(q);
     setMedResults(data);
   };
 
   const addItem = (med?: MedicationDto) => {
+    const tablets = 1;
+    const schedule = SCHEDULE_DAILY;
+    const durationDays = 7;
     setItems((prev) => [
       ...prev,
       {
         medicationId: med?.id,
         medName: med?.name ?? medSearch,
         dosage: '',
-        frequency: '',
-        durationDays: 7,
-        quantity: 1,
+        tablets,
+        schedule,
+        frequency: buildFrequency(tablets, schedule),
+        durationDays,
+        quantity: computeQuantity(tablets, schedule, durationDays),
       },
     ]);
     setMedSearch('');
@@ -616,6 +698,23 @@ function PrescriptionTab({
 
   const updateItem = (i: number, field: string, value: string | number) => {
     setItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
+  };
+
+  // Recomputes the derived frequency string and total quantity whenever
+  // tablets, schedule or duration change.
+  const updateItemDose = (i: number, field: 'tablets' | 'schedule' | 'durationDays', value: string | number) => {
+    setItems((prev) =>
+      prev.map((item, idx) => {
+        if (idx !== i) return item;
+        const next = { ...item, [field]: value };
+        const tablets = Number(next.tablets) || 0;
+        const days = Number(next.durationDays) || 0;
+        const schedule = String(next.schedule ?? SCHEDULE_DAILY);
+        next.frequency = buildFrequency(tablets, schedule);
+        next.quantity = computeQuantity(tablets, schedule, days);
+        return next;
+      })
+    );
   };
 
   const removeItem = (i: number) => {
@@ -633,7 +732,7 @@ function PrescriptionTab({
       customInstructions,
       validFrom,
       validUntil,
-      items: items.map(({ medName, ...rest }) => ({ ...rest, medicationName: medName })),
+      items: items.map(({ medName, tablets, schedule, ...rest }) => ({ ...rest, medicationName: medName })),
     };
 
     try {
@@ -650,7 +749,7 @@ function PrescriptionTab({
     }
   };
 
-  const isEditable = ['IN_PROGRESS', 'CONFIRMED'].includes(consultation.status);
+  const isEditable = consultation.status === 'IN_PROGRESS';
 
   return (
     <div className="space-y-4">
@@ -674,27 +773,32 @@ function PrescriptionTab({
                       </div>
                     ))}
                   </div>
-                  {isEditable && (
-                    confirmDeleteId === p.id ? (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-xs text-slate-600">{t('workspace.confirmDelete')}</span>
-                        <button
-                          className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                          onClick={() => handleDelete(p.id)}
-                          disabled={deleting}
-                        >
-                          {t('common.yes')}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <button className="text-xs text-blue-600 hover:text-blue-800" onClick={() => openPrescriptionPdf(p.id)}>
+                      {t('workspace.downloadPrescription')}
+                    </button>
+                    {isEditable && (
+                      confirmDeleteId === p.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-slate-600">{t('workspace.confirmDelete')}</span>
+                          <button
+                            className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                            onClick={() => handleDelete(p.id)}
+                            disabled={deleting}
+                          >
+                            {t('common.yes')}
+                          </button>
+                          <button className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50" onClick={() => setConfirmDeleteId(null)}>
+                            {t('common.cancel')}
+                          </button>
+                        </div>
+                      ) : (
+                        <button className="text-xs text-red-500 hover:text-red-700" onClick={() => setConfirmDeleteId(p.id)}>
+                          {t('workspace.delete')}
                         </button>
-                        <button className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50" onClick={() => setConfirmDeleteId(null)}>
-                          {t('common.cancel')}
-                        </button>
-                      </div>
-                    ) : (
-                      <button className="text-xs text-red-500 hover:text-red-700 shrink-0" onClick={() => setConfirmDeleteId(p.id)}>
-                        {t('workspace.delete')}
-                      </button>
-                    )
-                  )}
+                      )
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -795,16 +899,23 @@ function PrescriptionTab({
                         <input type="text" className="input-field py-1" placeholder="e.g. 500mg" value={item.dosage} onChange={(e) => updateItem(i, 'dosage', e.target.value)} />
                       </div>
                       <div>
-                        <label className="label text-xs">{t('workspace.frequency')}</label>
-                        <input type="text" className="input-field py-1" placeholder="e.g. 3x daily" value={item.frequency} onChange={(e) => updateItem(i, 'frequency', e.target.value)} />
+                        <label className="label text-xs">{t('workspace.tablets')}</label>
+                        <input type="number" className="input-field py-1" min={1} value={item.tablets ?? 1} onChange={(e) => updateItemDose(i, 'tablets', parseInt(e.target.value) || 0)} />
+                      </div>
+                      <div>
+                        <label className="label text-xs">{t('workspace.schedule')}</label>
+                        <select className="input-field py-1" value={item.schedule ?? SCHEDULE_DAILY} onChange={(e) => updateItemDose(i, 'schedule', e.target.value)}>
+                          <option value={SCHEDULE_DAILY}>{t('workspace.perDay')}</option>
+                          <option value={SCHEDULE_ALT}>{t('workspace.everyOtherDay')}</option>
+                        </select>
                       </div>
                       <div>
                         <label className="label text-xs">{t('workspace.duration')}</label>
-                        <input type="number" className="input-field py-1" min={1} value={item.durationDays} onChange={(e) => updateItem(i, 'durationDays', parseInt(e.target.value))} />
+                        <input type="number" className="input-field py-1" min={1} value={item.durationDays} onChange={(e) => updateItemDose(i, 'durationDays', parseInt(e.target.value) || 0)} />
                       </div>
                       <div>
-                        <label className="label text-xs">{t('workspace.quantity')}</label>
-                        <input type="number" className="input-field py-1" min={1} value={item.quantity} onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value))} />
+                        <label className="label text-xs">{t('workspace.quantity')} <span className="text-slate-400">({t('workspace.autoCalc')})</span></label>
+                        <input type="number" className="input-field py-1 bg-slate-100 text-slate-600" value={item.quantity} readOnly disabled />
                       </div>
                     </div>
                   </div>
@@ -832,6 +943,19 @@ function PrescriptionTab({
 
 // ─── Referral Tab ─────────────────────────────────────────────────────────────
 
+// Insured categories per the CNAS referral form (a single one is selected).
+const INSURED_CATEGORIES = [
+  'Salariat', 'Co-asigurat', 'Liber profesionist', 'Copil (<18 ani)',
+  'Elev/Student (18–26 ani)', 'Gravidă/Lehuză', 'Pensionar',
+  'Veteran/Revoluționar/Handicap', 'PNS', 'Ajutor social', 'Șomaj',
+  'Card european (CE)', 'Acorduri internaționale', 'Alte categorii',
+];
+
+function diagnosisLabel(d: DiagnosisResponse): string {
+  const name = d.diseaseNameRo || d.diseaseName || d.customDiagnosis || d.icd10Code || '—';
+  return d.icd10Code ? `${name} (${d.icd10Code})` : name;
+}
+
 function ReferralTab({
   consultation,
   onAdd,
@@ -844,10 +968,20 @@ function ReferralTab({
   const [destination, setDestination] = useState('');
   const [reason, setReason] = useState('');
   const [urgency, setUrgency] = useState<UrgencyLevel>('ROUTINE');
+  const [diagnosisId, setDiagnosisId] = useState('');
+  const [acuteChronic, setAcuteChronic] = useState<AcuteChronic | ''>('');
+  const [insuredCategory, setInsuredCategory] = useState('');
+  const [investigations, setInvestigations] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const isInvestigation = referralType === 'LABORATORY' || referralType === 'IMAGING';
+  const diagnoses = consultation.diagnoses ?? [];
+
+  // Validity is derived from the diagnosis type, not editable: acute → 30 days, chronic → 60 days.
+  const validityDays = acuteChronic === 'ACUTE' ? 30 : acuteChronic === 'CHRONIC' ? 60 : null;
 
   const handleDelete = async (id: string) => {
     setDeleting(true);
@@ -861,15 +995,30 @@ function ReferralTab({
   };
 
   const handleSubmit = async () => {
-    if (!destination.trim()) { setFormError(t('workspace.destinationRequired')); return; }
-    if (!reason.trim()) { setFormError(t('workspace.reasonRequired')); return; }
+    if (isInvestigation) {
+      if (!investigations.trim()) { setFormError(t('workspace.investigationsRequired')); return; }
+    } else {
+      if (!destination.trim()) { setFormError(t('workspace.destinationRequired')); return; }
+      if (!reason.trim()) { setFormError(t('workspace.reasonRequired')); return; }
+    }
     setSubmitting(true);
     setFormError('');
-    const payload: ReferralRequest = { referralType, destination, reason, urgency };
+    const payload: ReferralRequest = {
+      referralType,
+      destination,
+      reason,
+      urgency,
+      diagnosisId: diagnosisId || null,
+      acuteChronic: acuteChronic || null,
+      validityDays,
+      insuredCategory: insuredCategory || null,
+      investigations: investigations || null,
+    };
     try {
       await addReferral(consultation.id, payload);
       setDestination('');
       setReason('');
+      setInvestigations('');
       onAdd();
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
@@ -879,7 +1028,7 @@ function ReferralTab({
     }
   };
 
-  const isEditable = ['IN_PROGRESS', 'CONFIRMED'].includes(consultation.status);
+  const isEditable = consultation.status === 'IN_PROGRESS';
 
   return (
     <div className="space-y-4">
@@ -893,7 +1042,11 @@ function ReferralTab({
                   <div>
                     <div className="font-medium text-slate-800">{r.referralType} → {r.destination}</div>
                     <div className="text-slate-600 mt-0.5">{r.reason}</div>
+                    {r.investigations && <div className="text-slate-600 mt-0.5">{t('workspace.investigations')}: {r.investigations}</div>}
                     <div className="text-xs text-slate-500 mt-0.5">{t('workspace.urgency')}: {r.urgency}</div>
+                    <button className="text-xs text-blue-600 hover:text-blue-800 mt-1" onClick={() => openReferralPdf(r.id)}>
+                      {t('workspace.downloadReferral')}
+                    </button>
                   </div>
                   {isEditable && (
                     confirmDeleteId === r.id ? (
@@ -952,27 +1105,87 @@ function ReferralTab({
               </div>
             </div>
 
-            <div>
-              <label className="label">{t('workspace.destination')} *</label>
-              <input
-                type="text"
-                className="input-field"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                placeholder="e.g. Cardiology dept."
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">{t('workspace.diagnosis')}</label>
+                <select className="input-field" value={diagnosisId} onChange={(e) => setDiagnosisId(e.target.value)}>
+                  <option value="">{t('workspace.selectDiagnosis')}</option>
+                  {diagnoses.map((d) => (
+                    <option key={d.id} value={d.id}>{diagnosisLabel(d)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">{t('workspace.insuredCategory')}</label>
+                <select className="input-field" value={insuredCategory} onChange={(e) => setInsuredCategory(e.target.value)}>
+                  <option value="">{t('workspace.selectCategory')}</option>
+                  {INSURED_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>
-              <label className="label">{t('workspace.reason')} *</label>
-              <textarea
-                className="input-field"
-                rows={3}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={t('workspace.reason') + '…'}
-              />
+              <label className="label">{t('workspace.diagnosisType')}</label>
+              <select className="input-field" value={acuteChronic} onChange={(e) => setAcuteChronic(e.target.value as AcuteChronic | '')}>
+                <option value="">{t('workspace.selectType')}</option>
+                <option value="ACUTE">{t('workspace.acute')}</option>
+                <option value="CHRONIC">{t('workspace.chronic')}</option>
+              </select>
+              {validityDays != null && (
+                <p className="text-xs text-slate-500 mt-1">{t('workspace.validityDays')}: {validityDays} {t('workspace.daysAuto')}</p>
+              )}
             </div>
+
+            {isInvestigation ? (
+              <>
+                <div>
+                  <label className="label">{t('workspace.investigations')} *</label>
+                  <textarea
+                    className="input-field"
+                    rows={3}
+                    value={investigations}
+                    onChange={(e) => setInvestigations(e.target.value)}
+                    placeholder={t('workspace.investigationsPlaceholder')}
+                  />
+                </div>
+                <div>
+                  <label className="label">{t('workspace.destination')}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    placeholder={t('workspace.labPlaceholder')}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="label">{t('workspace.destination')} *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    placeholder="e.g. Cardiology dept."
+                  />
+                </div>
+
+                <div>
+                  <label className="label">{t('workspace.reason')} *</label>
+                  <textarea
+                    className="input-field"
+                    rows={3}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder={t('workspace.reason') + '…'}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="flex justify-end">
               <button className="btn-primary" onClick={handleSubmit} disabled={submitting}>
@@ -1076,9 +1289,9 @@ function DoctorIntakeTab({ consultation, onSaved }: { consultation: FullConsulta
           {consultation.intake.temperature != null && <div><span className="text-slate-500">{t('workspace.temperature')}: </span><span className="font-medium">{consultation.intake.temperature} °C</span></div>}
           {consultation.intake.bloodPressure && <div><span className="text-slate-500">{t('workspace.bloodPressure')}: </span><span className="font-medium">{consultation.intake.bloodPressure}</span></div>}
           {consultation.intake.bloodGlucose != null && <div><span className="text-slate-500">{t('workspace.bloodGlucose')}: </span><span className="font-medium">{consultation.intake.bloodGlucose} mg/dL</span></div>}
-          {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('workspace.symptomOnset')}: </span>{consultation.intake.symptomOnset}</div>}
-          {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('workspace.painIntensity')}: </span>{consultation.intake.painIntensity}</div>}
-          {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('workspace.generalSymptoms')}: </span>{consultation.intake.generalSymptoms}</div>}
+          {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('workspace.symptomOnset')}: </span>{onsetLabel(t, consultation.intake.symptomOnset)}</div>}
+          {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('workspace.painIntensity')}: </span>{painIntensityLabel(t, consultation.intake.painIntensity)}</div>}
+          {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('workspace.generalSymptoms')}: </span>{generalSymptomsLabel(t, consultation.intake.generalSymptoms)}</div>}
           {consultation.intake.knownConditions && <div><span className="text-slate-500">{t('workspace.knownConditions')}: </span>{consultation.intake.knownConditions}</div>}
           {consultation.intake.currentMedications && <div><span className="text-slate-500">{t('workspace.currentMedications')}: </span>{consultation.intake.currentMedications}</div>}
           {consultation.intake.allergies && <div><span className="text-slate-500">{t('workspace.allergies')}: </span>{consultation.intake.allergies}</div>}
@@ -1101,10 +1314,12 @@ function DoctorIntakeTab({ consultation, onSaved }: { consultation: FullConsulta
     );
   }
 
-  if (!['IN_PROGRESS', 'CONFIRMED'].includes(consultation.status)) {
+  if (consultation.status !== 'IN_PROGRESS') {
     return (
       <div className="card card-body text-center py-8">
-        <p className="text-slate-500">{t('workspace.intakeNotFilled')}</p>
+        <p className="text-slate-500">
+          {consultation.status === 'CONFIRMED' ? t('workspace.startToEdit') : t('workspace.intakeNotFilled')}
+        </p>
       </div>
     );
   }
@@ -1148,17 +1363,17 @@ function DoctorIntakeTab({ consultation, onSaved }: { consultation: FullConsulta
         {/* Symptom onset */}
         <div>
           <label className="label">{t('intake.symptomOnsetLabel')}</label>
-          <input type="text" className="input-field" value={symptomOnset} onChange={(e) => setSymptomOnset(e.target.value)} placeholder="e.g. 3 days" />
+          <input type="text" className="input-field" value={symptomOnset} onChange={(e) => setSymptomOnset(e.target.value)} placeholder={t('intake.symptomOnsetPlaceholder')} />
         </div>
 
         {/* Pain intensity */}
         <div>
           <label className="label">{t('intake.painIntensityLabel')}</label>
           <div className="flex flex-wrap gap-3 mt-1">
-            {['No pain', 'Mild', 'Moderate', 'Severe'].map((val) => (
-              <label key={val} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="radio" name="painIntensity" className="text-blue-600" checked={painIntensity === val} onChange={() => setPainIntensity(val)} />
-                <span className="text-slate-700">{val}</span>
+            {PAIN_INTENSITY_OPTIONS.map(({ value, key }) => (
+              <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="painIntensity" className="text-blue-600" checked={painIntensity === value} onChange={() => setPainIntensity(value)} />
+                <span className="text-slate-700">{t('intake.painIntensity.' + key)}</span>
               </label>
             ))}
           </div>
@@ -1171,7 +1386,7 @@ function DoctorIntakeTab({ consultation, onSaved }: { consultation: FullConsulta
             {GENERAL_SYMPTOMS.map((s) => (
               <label key={s} className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" className="rounded border-slate-300 text-blue-600" checked={generalSymptomsList.includes(s)} onChange={() => toggleGeneral(s)} />
-                <span className="text-slate-700">{s}</span>
+                <span className="text-slate-700">{t('symptomName.' + s, { defaultValue: s })}</span>
               </label>
             ))}
           </div>
@@ -1185,7 +1400,7 @@ function DoctorIntakeTab({ consultation, onSaved }: { consultation: FullConsulta
             <div className="mt-1 border border-slate-200 rounded-lg overflow-hidden shadow-sm">
               {symptomResults.map((s) => (
                 <button key={s.id} type="button" className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 border-b border-slate-100 last:border-0" onClick={() => addSymptom(s)}>
-                  {s.name}
+                  {t('symptomName.' + s.name, { defaultValue: s.name })}
                 </button>
               ))}
             </div>
@@ -1194,7 +1409,7 @@ function DoctorIntakeTab({ consultation, onSaved }: { consultation: FullConsulta
             <div className="mt-3 space-y-2">
               {selectedSymptoms.map((s) => (
                 <div key={s.id} className="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2">
-                  <span className="text-sm font-medium text-slate-700 flex-1">{s.name}</span>
+                  <span className="text-sm font-medium text-slate-700 flex-1">{t('symptomName.' + s.name, { defaultValue: s.name })}</span>
                   <select className="input-field w-28 py-1 text-xs" value={s.severity} onChange={(e) => updateSymptom(s.id, 'severity', e.target.value)}>
                     <option value="MILD">{t('intake.severity.MILD')}</option>
                     <option value="MODERATE">{t('intake.severity.MODERATE')}</option>
@@ -1251,6 +1466,7 @@ function DocumentsTab({ consultation }: { consultation: FullConsultationResponse
   const [uploadError, setUploadError] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const isEditable = consultation.status === 'IN_PROGRESS';
 
   const handleDelete = async (id: string) => {
     setDeleting(true);
@@ -1309,16 +1525,18 @@ function DocumentsTab({ consultation }: { consultation: FullConsultationResponse
             <h3 className="font-semibold text-slate-900">{t('workspace.documents.title')}</h3>
             <p className="text-xs text-slate-500 mt-0.5">{t('workspace.documents.subtitle')}</p>
           </div>
-          <label className={`btn-primary text-sm cursor-pointer ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
-            {uploading ? t('workspace.documents.uploading') : t('workspace.documents.upload')}
-            <input
-              type="file"
-              accept=".pdf,application/pdf"
-              className="hidden"
-              disabled={uploading || docs.length >= 10}
-              onChange={handleFileChange}
-            />
-          </label>
+          {isEditable && (
+            <label className={`btn-primary text-sm cursor-pointer ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+              {uploading ? t('workspace.documents.uploading') : t('workspace.documents.upload')}
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                disabled={uploading || docs.length >= 10}
+                onChange={handleFileChange}
+              />
+            </label>
+          )}
         </div>
         <div className="card-body">
           {uploadError && (
@@ -1348,7 +1566,7 @@ function DocumentsTab({ consultation }: { consultation: FullConsultationResponse
                   >
                     {t('workspace.documents.download')}
                   </button>
-                  {confirmDeleteId === doc.id ? (
+                  {isEditable && (confirmDeleteId === doc.id ? (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="text-xs text-slate-600">{t('workspace.confirmDelete')}</span>
                       <button
@@ -1366,7 +1584,7 @@ function DocumentsTab({ consultation }: { consultation: FullConsultationResponse
                     <button className="text-xs text-red-500 hover:text-red-700 shrink-0" onClick={() => setConfirmDeleteId(doc.id)}>
                       {t('workspace.delete')}
                     </button>
-                  )}
+                  ))}
                 </li>
               ))}
             </ul>
@@ -1435,9 +1653,9 @@ function ReviewTab({
             {consultation.intake.temperature != null && <div><span className="text-slate-500">{t('workspace.temperature')}: </span><span className="font-medium">{consultation.intake.temperature} °C</span></div>}
             {consultation.intake.bloodPressure && <div><span className="text-slate-500">{t('workspace.bloodPressure')}: </span><span className="font-medium">{consultation.intake.bloodPressure}</span></div>}
             {consultation.intake.bloodGlucose != null && <div><span className="text-slate-500">{t('workspace.bloodGlucose')}: </span><span className="font-medium">{consultation.intake.bloodGlucose} mg/dL</span></div>}
-            {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('workspace.symptomOnset')}: </span>{consultation.intake.symptomOnset}</div>}
-            {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('workspace.painIntensity')}: </span>{consultation.intake.painIntensity}</div>}
-            {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('workspace.generalSymptoms')}: </span>{consultation.intake.generalSymptoms}</div>}
+            {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('workspace.symptomOnset')}: </span>{onsetLabel(t, consultation.intake.symptomOnset)}</div>}
+            {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('workspace.painIntensity')}: </span>{painIntensityLabel(t, consultation.intake.painIntensity)}</div>}
+            {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('workspace.generalSymptoms')}: </span>{generalSymptomsLabel(t, consultation.intake.generalSymptoms)}</div>}
             {consultation.intake.knownConditions && <div><span className="text-slate-500">{t('workspace.knownConditions')}: </span>{consultation.intake.knownConditions}</div>}
             {consultation.intake.currentMedications && <div><span className="text-slate-500">{t('workspace.currentMedications')}: </span>{consultation.intake.currentMedications}</div>}
             {consultation.intake.allergies && <div><span className="text-slate-500">{t('workspace.allergies')}: </span>{consultation.intake.allergies}</div>}
@@ -1776,6 +1994,23 @@ export default function ConsultationWorkspacePage() {
     finally { setActionLoading(false); }
   };
 
+  const handleConfirm = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try { await confirmConsultation(id); await load(); }
+    catch { setError(t('workspace.failedConfirm')); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleCancel = async () => {
+    if (!id) return;
+    if (!confirm(t('workspace.declineConfirm'))) return;
+    setActionLoading(true);
+    try { await cancelConsultation(id); await load(); }
+    catch { setError(t('workspace.failedCancel')); }
+    finally { setActionLoading(false); }
+  };
+
   const handleComplete = async (note: string, followUpScheduledAt?: string) => {
     if (!id) return;
     setActionLoading(true);
@@ -1876,6 +2111,8 @@ export default function ConsultationWorkspacePage() {
             <OverviewTab
               consultation={consultation}
               onStart={handleStart}
+              onConfirm={handleConfirm}
+              onCancel={handleCancel}
               actionLoading={actionLoading}
             />
             <SeriesNav consultation={consultation} onReload={load} />

@@ -81,6 +81,19 @@ public class DoctorService {
         return userMapper.toDoctorResponse(doctor);
     }
 
+    public DoctorResponse updateMyProfile(UUID accountId, UpdateDoctorProfileRequest req) {
+        Doctor doctor = doctorRepository.findByAccountId(accountId)
+            .orElseThrow(() -> new ResourceNotFoundException("Doctor not found for account: " + accountId));
+        doctor.setClinicName(req.clinicName());
+        doctor.setPhone(req.phone());
+        doctor.setCui(req.cui());
+        doctor.setClinicAddress(req.clinicAddress());
+        doctor.setCas(req.cas());
+        doctor.setCnasContractNumber(req.cnasContractNumber());
+        doctor.setProviderType(req.providerType());
+        return userMapper.toDoctorResponse(doctorRepository.save(doctor));
+    }
+
     @Transactional(readOnly = true)
     public List<ScheduleEntryResponse> getSchedule(UUID doctorId) {
         return scheduleRepository.findByDoctorIdAndIsActiveTrue(doctorId)

@@ -45,6 +45,15 @@ public class DoctorController {
         return ResponseEntity.ok(ApiResponse.ok(doctorService.getDoctorByAccountId(token.accountId())));
     }
 
+    @PutMapping("/doctors/me")
+    public ResponseEntity<ApiResponse<DoctorResponse>> updateMyProfile(
+            @RequestHeader("Authorization") String auth,
+            @RequestBody UpdateDoctorProfileRequest request) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"DOCTOR".equals(token.role())) throw new UnauthorizedException("Only doctors can edit doctor profiles");
+        return ResponseEntity.ok(ApiResponse.ok(doctorService.updateMyProfile(token.accountId(), request)));
+    }
+
     @GetMapping("/doctors/{doctorId}")
     public ResponseEntity<ApiResponse<DoctorResponse>> getDoctor(@PathVariable UUID doctorId) {
         return ResponseEntity.ok(ApiResponse.ok(doctorService.getDoctor(doctorId)));

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getConsultation, submitIntake, searchSymptoms, uploadDocument, openDocument, deleteDocument } from '../../api/consultationApi';
+import { getConsultation, submitIntake, searchSymptoms, uploadDocument, openDocument, deleteDocument, openPrescriptionPdf, openReferralPdf } from '../../api/consultationApi';
 
 import type {
   FullConsultationResponse,
@@ -758,13 +758,13 @@ export default function ConsultationDetailPage() {
             {consultation.intake.temperature != null && <div><span className="text-slate-500">{t('intake.temperatureField')}:</span> <span className="font-medium">{consultation.intake.temperature} °C</span></div>}
             {consultation.intake.bloodPressure && <div><span className="text-slate-500">{t('intake.bloodPressureField')}:</span> <span className="font-medium">{consultation.intake.bloodPressure}</span></div>}
             {consultation.intake.bloodGlucose != null && <div><span className="text-slate-500">{t('intake.bloodGlucoseField')}:</span> <span className="font-medium">{consultation.intake.bloodGlucose} mg/dL</span></div>}
-            {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('intake.onsetField')}:</span> <span className="font-medium">{consultation.intake.symptomOnset}</span></div>}
-            {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('intake.painIntensityField')}:</span> <span className="font-medium">{consultation.intake.painIntensity}</span></div>}
+            {consultation.intake.symptomOnset && <div><span className="text-slate-500">{t('intake.onsetField')}:</span> <span className="font-medium">{t('intake.onset.' + consultation.intake.symptomOnset, { defaultValue: consultation.intake.symptomOnset })}</span></div>}
+            {consultation.intake.painIntensity && <div><span className="text-slate-500">{t('intake.painIntensityField')}:</span> <span className="font-medium">{t('intake.painIntensity.' + consultation.intake.painIntensity.toLowerCase(), { defaultValue: consultation.intake.painIntensity })}</span></div>}
             {consultation.intake.painType && <div><span className="text-slate-500">{t('intake.painTypeField')}:</span> <span className="font-medium">{consultation.intake.painType}</span></div>}
             {consultation.intake.hadSymptomsBefore != null && <div><span className="text-slate-500">{t('intake.hadBeforeField')}:</span> <span className="font-medium">{consultation.intake.hadSymptomsBefore ? t('common.yes') : t('common.no')}</span></div>}
-            {consultation.intake.bodyZone && <div><span className="text-slate-500">{t('intake.bodyZoneField')}:</span> <span className="font-medium">{consultation.intake.bodyZone}</span></div>}
+            {consultation.intake.bodyZone && <div><span className="text-slate-500">{t('intake.bodyZoneField')}:</span> <span className="font-medium">{t('booking.cat.' + consultation.intake.bodyZone, { defaultValue: consultation.intake.bodyZone })}</span></div>}
             {consultation.intake.bodyZoneSymptoms && <div><span className="text-slate-500">{t('intake.zoneField')}:</span> <span className="font-medium">{consultation.intake.bodyZoneSymptoms}</span></div>}
-            {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('intake.generalField')}:</span> <span className="font-medium">{consultation.intake.generalSymptoms}</span></div>}
+            {consultation.intake.generalSymptoms && <div><span className="text-slate-500">{t('intake.generalField')}:</span> <span className="font-medium">{consultation.intake.generalSymptoms.split(',').map((s) => t('symptomName.' + s.trim(), { defaultValue: s.trim() })).join(', ')}</span></div>}
             {consultation.intake.knownConditions && <div><span className="text-slate-500">{t('intake.knownField')}:</span> <span className="font-medium">{consultation.intake.knownConditions}</span></div>}
             {consultation.intake.medicationsTakenText && <div><span className="text-slate-500">{t('intake.medsField')}:</span> <span className="font-medium">{consultation.intake.medicationsTakenText}</span></div>}
             {consultation.intake.currentMedications && <div><span className="text-slate-500">{t('intake.currentMedsField')}:</span> <span className="font-medium">{consultation.intake.currentMedications}</span></div>}
@@ -804,10 +804,15 @@ export default function ConsultationDetailPage() {
           <div className="divide-y divide-slate-100">
             {(consultation.prescriptions ?? []).map((p) => (
               <div key={p.id} className="card-body text-sm space-y-2">
-                {p.customInstructions && <p className="text-slate-700">{p.customInstructions}</p>}
-                <div className="text-xs text-slate-500">
-                  {t('intake.validFrom')}: {new Date(p.validFrom).toLocaleDateString()} – {new Date(p.validUntil).toLocaleDateString()}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-xs text-slate-500">
+                    {t('intake.validFrom')}: {new Date(p.validFrom).toLocaleDateString()} – {new Date(p.validUntil).toLocaleDateString()}
+                  </div>
+                  <button className="text-xs text-blue-600 hover:text-blue-800 shrink-0" onClick={() => openPrescriptionPdf(p.id)}>
+                    {t('intake.downloadPrescription')}
+                  </button>
                 </div>
+                {p.customInstructions && <p className="text-slate-700">{p.customInstructions}</p>}
                 {(p.items ?? []).map((item) => (
                   <div key={item.id} className="pl-3 border-l-2 border-blue-200">
                     <div className="font-medium">{item.medicationName ?? t('intake.unknown')}</div>
@@ -835,7 +840,11 @@ export default function ConsultationDetailPage() {
                   {r.referralType} → {r.destination}
                 </div>
                 <div className="text-slate-600">{r.reason}</div>
+                {r.investigations && <div className="text-slate-600">{t('workspace.investigations')}: {r.investigations}</div>}
                 <div className="text-xs text-slate-500">{t('intake.urgency')}: {r.urgency}</div>
+                <button className="text-xs text-blue-600 hover:text-blue-800" onClick={() => openReferralPdf(r.id)}>
+                  {t('intake.downloadReferral')}
+                </button>
               </div>
             ))}
           </div>

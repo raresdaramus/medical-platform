@@ -201,6 +201,34 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
+    @GetMapping("/prescription/{prescriptionId}/pdf")
+    public ResponseEntity<byte[]> downloadPrescriptionPdf(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID prescriptionId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"PATIENT".equals(token.role()) && !"DOCTOR".equals(token.role())) throw new UnauthorizedException("Not authorized");
+        byte[] pdf = consultationService.generatePrescriptionPdf(prescriptionId, token.accountId(), token.role());
+        return ResponseEntity.ok()
+            .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+            .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                "inline; filename=\"reteta-" + prescriptionId + ".pdf\"")
+            .body(pdf);
+    }
+
+    @GetMapping("/referral/{referralId}/pdf")
+    public ResponseEntity<byte[]> downloadReferralPdf(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID referralId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        if (!"PATIENT".equals(token.role()) && !"DOCTOR".equals(token.role())) throw new UnauthorizedException("Not authorized");
+        byte[] pdf = consultationService.generateReferralPdf(referralId, token.accountId(), token.role());
+        return ResponseEntity.ok()
+            .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+            .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                "inline; filename=\"bilet-trimitere-" + referralId + ".pdf\"")
+            .body(pdf);
+    }
+
     @PostMapping("/{consultationId}/ai-suggest")
     public ResponseEntity<ApiResponse<List<AiSuggestionResponse>>> aiSuggest(
             @RequestHeader("Authorization") String auth,

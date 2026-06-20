@@ -89,6 +89,8 @@ export interface CreateDoctorRequest {
   phone: string;
 }
 
+export type ProviderType = 'MF' | 'AMB_SPEC' | 'OTHER';
+
 export interface DoctorResponse {
   id: string;
   accountId: string;
@@ -98,6 +100,21 @@ export interface DoctorResponse {
   specialization: string;
   clinicName: string;
   phone: string;
+  cui?: string | null;
+  clinicAddress?: string | null;
+  cas?: string | null;
+  cnasContractNumber?: string | null;
+  providerType?: ProviderType | null;
+}
+
+export interface UpdateDoctorProfileRequest {
+  clinicName: string;
+  phone: string;
+  cui?: string | null;
+  clinicAddress?: string | null;
+  cas?: string | null;
+  cnasContractNumber?: string | null;
+  providerType?: ProviderType | null;
 }
 
 export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -199,6 +216,8 @@ export interface ConsultationResponse {
   consultationType: ConsultationType;
   status: ConsultationStatus;
   slotDurationMinutes: number;
+  startedAt?: string | null;
+  completedAt?: string | null;
   createdAt: string;
   nextConsultationId?: string | null;
 }
@@ -316,11 +335,18 @@ export interface PrescriptionResponse {
   items: PrescriptionItemResponse[];
 }
 
+export type AcuteChronic = 'ACUTE' | 'CHRONIC';
+
 export interface ReferralRequest {
   referralType: ReferralType;
   destination: string;
   reason: string;
   urgency: UrgencyLevel;
+  diagnosisId?: string | null;
+  validityDays?: number | null;
+  acuteChronic?: AcuteChronic | null;
+  investigations?: string | null;
+  insuredCategory?: string | null;
 }
 
 export interface ReferralResponse {
@@ -330,7 +356,13 @@ export interface ReferralResponse {
   destination: string;
   reason: string;
   urgency: UrgencyLevel;
-  createdAt: string;
+  diagnosisId?: string | null;
+  validityDays?: number | null;
+  acuteChronic?: AcuteChronic | null;
+  investigations?: string | null;
+  insuredCategory?: string | null;
+  seriesNumber?: string | null;
+  issuedAt: string;
 }
 
 export interface DocumentResponse {

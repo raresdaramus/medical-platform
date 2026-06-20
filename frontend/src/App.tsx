@@ -22,6 +22,7 @@ import ConsultationWorkspacePage from './pages/doctor/ConsultationWorkspacePage'
 import ManageSchedulePage from './pages/doctor/ManageSchedulePage';
 import DoctorPatientsPage from './pages/doctor/DoctorPatientsPage';
 import DoctorPatientProfilePage from './pages/doctor/DoctorPatientProfilePage';
+import DoctorProfilePage from './pages/doctor/DoctorProfilePage';
 import StatisticsPage from './pages/doctor/StatisticsPage';
 
 // ─── Private Route ────────────────────────────────────────────────────────────
@@ -196,6 +197,14 @@ export default function App() {
           element={
             <PrivateRoute requiredRole="DOCTOR">
               <StatisticsPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/doctor/profile"
+          element={
+            <PrivateRoute requiredRole="DOCTOR">
+              <DoctorProfilePage />
             </PrivateRoute>
           }
         />

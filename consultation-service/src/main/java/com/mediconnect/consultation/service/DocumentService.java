@@ -75,6 +75,33 @@ public class DocumentService {
         return toResponse(doc);
     }
 
+    /**
+     * Persists a server-generated PDF (e.g. a prescription) as a consultation document.
+     * Unlike {@link #upload}, this does not enforce the per-consultation document limit,
+     * so generating a prescription never fails because of it.
+     */
+    public DocumentResponse storeGenerated(UUID consultationId, UUID uploaderId, String role,
+                                           String fileName, byte[] content) {
+        String storedName = UUID.randomUUID() + ".pdf";
+        Path dest = Paths.get(uploadDir, consultationId.toString(), storedName);
+        try {
+            Files.createDirectories(dest.getParent());
+            Files.write(dest, content);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to store generated file: " + e.getMessage());
+        }
+
+        ConsultationDocument doc = new ConsultationDocument();
+        doc.setConsultationId(consultationId);
+        doc.setUploadedBy(uploaderId);
+        doc.setUploaderRole(role);
+        doc.setFileName(fileName);
+        doc.setFilePath(dest.toString());
+        doc.setFileSize((long) content.length);
+        doc = documentRepository.save(doc);
+        return toResponse(doc);
+    }
+
     public List<DocumentResponse> list(UUID consultationId) {
         return documentRepository.findByConsultationIdOrderByUploadedAtAsc(consultationId)
             .stream().map(this::toResponse).collect(Collectors.toList());

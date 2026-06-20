@@ -32,6 +32,9 @@ public class ConsultationService {
     private final SchedulingService schedulingService;
     private final UserClient userClient;
     private final GroqService groqService;
+    private final PrescriptionPdfService prescriptionPdfService;
+    private final ReferralPdfService referralPdfService;
+    private final DocumentService documentService;
 
     public ConsultationService(ConsultationRepository consultationRepository,
                                ConsultationSymptomRepository symptomRepository,
@@ -46,7 +49,10 @@ public class ConsultationService {
                                ConsultationDocumentRepository documentRepository,
                                SchedulingService schedulingService,
                                UserClient userClient,
-                               GroqService groqService) {
+                               GroqService groqService,
+                               PrescriptionPdfService prescriptionPdfService,
+                               ReferralPdfService referralPdfService,
+                               DocumentService documentService) {
         this.consultationRepository = consultationRepository;
         this.symptomRepository = symptomRepository;
         this.ontologySymptomRepository = ontologySymptomRepository;
@@ -61,6 +67,9 @@ public class ConsultationService {
         this.schedulingService = schedulingService;
         this.userClient = userClient;
         this.groqService = groqService;
+        this.prescriptionPdfService = prescriptionPdfService;
+        this.referralPdfService = referralPdfService;
+        this.documentService = documentService;
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +92,13 @@ public class ConsultationService {
 
     @Transactional(readOnly = true)
     public List<ConsultationResponse> getDoctorPatientConsultations(UUID doctorId, UUID patientId) {
-        return consultationRepository.findByDoctorIdAndPatientId(doctorId, patientId)
+        // Consultations store patientId as the patient's accountId, but callers pass
+        // the patient profileId (from the doctor's patient list). Resolve it.
+        UUID patientAccountId = patientId;
+        try {
+            patientAccountId = userClient.getPatientInfo(patientId).accountId();
+        } catch (Exception ignored) {}
+        return consultationRepository.findByDoctorIdAndPatientId(doctorId, patientAccountId)
             .stream().map(c -> enrichedResponse(c, false, false)).collect(Collectors.toList());
     }
 
@@ -273,7 +288,7 @@ public class ConsultationService {
             .collect(Collectors.toList());
 
         List<ReferralResponse> referrals = referralRepository.findByConsultationId(consultationId).stream()
-            .map(r -> new ReferralResponse(r.getId(), r.getConsultationId(), r.getReferralType(), r.getDestination(), r.getReason(), r.getUrgency(), r.getIssuedAt()))
+            .map(this::toReferralResponse)
             .collect(Collectors.toList());
 
         UUID previousConsultationId = consultationRepository.findByNextConsultationId(consultationId)
@@ -351,6 +366,15 @@ public class ConsultationService {
                 savedItems.add(new PrescriptionItemResponse(pi.getId(), pi.getMedicationId(), pi.getMedicationName(), pi.getDosage(), pi.getFrequency(), pi.getDurationDays(), pi.getQuantity()));
             }
         }
+        // Generate the standard prescription PDF and attach it to the consultation's documents.
+        try {
+            byte[] pdf = renderPrescriptionPdf(prescription, c);
+            String fileName = "Reteta_" + prescription.getIssuedAt().toLocalDate() + ".pdf";
+            documentService.storeGenerated(consultationId, accountId, "DOCTOR", fileName, pdf);
+        } catch (Exception e) {
+            // PDF generation must never block saving the prescription itself.
+        }
+
         return new PrescriptionResponse(prescription.getId(), prescription.getConsultationId(),
             prescription.getDiagnosisId(), prescription.getCustomInstructions(),
             prescription.getValidFrom(), prescription.getValidUntil(), prescription.getIssuedAt(), savedItems);
@@ -366,10 +390,44 @@ public class ConsultationService {
         referral.setDestination(req.destination());
         referral.setReason(req.reason());
         referral.setUrgency(req.urgency() != null ? req.urgency() : "ROUTINE");
+        referral.setDiagnosisId(req.diagnosisId());
+        referral.setAcuteChronic(req.acuteChronic());
+        // Validity is derived from the diagnosis type, not editable: acute → 30 days, chronic → 60 days.
+        referral.setValidityDays(validityDaysFor(req.acuteChronic()));
+        referral.setInvestigations(req.investigations());
+        referral.setInsuredCategory(req.insuredCategory());
+        referral.setSeriesNumber(generateReferralSeries());
         referral.setIssuedAt(LocalDateTime.now());
         referral = referralRepository.save(referral);
-        return new ReferralResponse(referral.getId(), referral.getConsultationId(), referral.getReferralType(),
-            referral.getDestination(), referral.getReason(), referral.getUrgency(), referral.getIssuedAt());
+
+        // Generate the standard referral PDF and attach it to the consultation's documents.
+        try {
+            byte[] pdf = renderReferralPdf(referral, c);
+            String fileName = "BiletTrimitere_" + referral.getIssuedAt().toLocalDate() + ".pdf";
+            documentService.storeGenerated(consultationId, accountId, "DOCTOR", fileName, pdf);
+        } catch (Exception e) {
+            // PDF generation must never block saving the referral itself.
+        }
+
+        return toReferralResponse(referral);
+    }
+
+    private ReferralResponse toReferralResponse(Referral r) {
+        return new ReferralResponse(r.getId(), r.getConsultationId(), r.getReferralType(),
+            r.getDestination(), r.getReason(), r.getUrgency(), r.getDiagnosisId(), r.getValidityDays(),
+            r.getAcuteChronic(), r.getInvestigations(), r.getInsuredCategory(), r.getSeriesNumber(), r.getIssuedAt());
+    }
+
+    /** Referral validity derived from the diagnosis type: acute → 30 days, chronic → 60 days. */
+    private Integer validityDaysFor(String acuteChronic) {
+        if ("ACUTE".equals(acuteChronic)) return 30;
+        if ("CHRONIC".equals(acuteChronic)) return 60;
+        return null;
+    }
+
+    /** Short human-readable referral series, e.g. "BT-A1B2C3D4". */
+    private String generateReferralSeries() {
+        return "BT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     public ConsultationResponse completeConsultation(UUID consultationId, UUID accountId, CompleteConsultationRequest req) {
@@ -530,6 +588,94 @@ public class ConsultationService {
         if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized");
         prescriptionItemRepository.deleteAll(prescriptionItemRepository.findByPrescriptionId(prescriptionId));
         prescriptionRepository.delete(prescription);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] generatePrescriptionPdf(UUID prescriptionId, UUID accountId, String role) {
+        Prescription prescription = prescriptionRepository.findById(prescriptionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Prescription not found: " + prescriptionId));
+        Consultation c = getConsultationById(prescription.getConsultationId());
+
+        // Authorization: the consultation's doctor or the consultation's patient may download.
+        if ("DOCTOR".equals(role)) {
+            UUID doctorProfileId = resolveDoctorProfileId(accountId);
+            if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized");
+        } else if ("PATIENT".equals(role)) {
+            if (!c.getPatientId().equals(accountId)) throw new UnauthorizedException("Not authorized");
+        } else {
+            throw new UnauthorizedException("Not authorized");
+        }
+
+        return renderPrescriptionPdf(prescription, c);
+    }
+
+    private byte[] renderPrescriptionPdf(Prescription prescription, Consultation c) {
+        List<PrescriptionItem> items = prescriptionItemRepository.findByPrescriptionId(prescription.getId());
+
+        PatientDetailsDto patient = null;
+        try { patient = userClient.getPatientDetailsByAccountId(c.getPatientId()); } catch (Exception ignored) {}
+
+        DoctorDetailsDto doctor = null;
+        try { doctor = userClient.getDoctorDetails(c.getDoctorId()); } catch (Exception ignored) {}
+
+        String diagnosisText = resolveDiagnosisText(prescription);
+
+        return prescriptionPdfService.generate(prescription, items, patient, doctor, diagnosisText);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] generateReferralPdf(UUID referralId, UUID accountId, String role) {
+        Referral referral = referralRepository.findById(referralId)
+            .orElseThrow(() -> new ResourceNotFoundException("Referral not found: " + referralId));
+        Consultation c = getConsultationById(referral.getConsultationId());
+
+        if ("DOCTOR".equals(role)) {
+            UUID doctorProfileId = resolveDoctorProfileId(accountId);
+            if (!c.getDoctorId().equals(doctorProfileId)) throw new UnauthorizedException("Not authorized");
+        } else if ("PATIENT".equals(role)) {
+            if (!c.getPatientId().equals(accountId)) throw new UnauthorizedException("Not authorized");
+        } else {
+            throw new UnauthorizedException("Not authorized");
+        }
+
+        return renderReferralPdf(referral, c);
+    }
+
+    private byte[] renderReferralPdf(Referral referral, Consultation c) {
+        PatientDetailsDto patient = null;
+        try { patient = userClient.getPatientDetailsByAccountId(c.getPatientId()); } catch (Exception ignored) {}
+
+        DoctorDetailsDto doctor = null;
+        try { doctor = userClient.getDoctorDetails(c.getDoctorId()); } catch (Exception ignored) {}
+
+        String diagnosisText = resolveDiagnosisTextById(referral.getDiagnosisId());
+
+        return referralPdfService.generate(referral, patient, doctor, diagnosisText);
+    }
+
+    private String resolveDiagnosisText(Prescription prescription) {
+        return resolveDiagnosisTextById(prescription.getDiagnosisId());
+    }
+
+    private String resolveDiagnosisTextById(UUID diagnosisId) {
+        if (diagnosisId == null) return null;
+        return diagnosisRepository.findById(diagnosisId)
+            .map(d -> {
+                if (d.getDiseaseId() != null) {
+                    Disease disease = diseaseRepository.findById(d.getDiseaseId()).orElse(null);
+                    if (disease != null) {
+                        String name = disease.getNameRo() != null && !disease.getNameRo().isBlank()
+                            ? disease.getNameRo() : disease.getName();
+                        if (d.getIcd10Code() != null && !d.getIcd10Code().isBlank()) {
+                            return name + " (" + d.getIcd10Code() + ")";
+                        }
+                        return name;
+                    }
+                }
+                if (d.getCustomDiagnosis() != null && !d.getCustomDiagnosis().isBlank()) return d.getCustomDiagnosis();
+                return d.getIcd10Code();
+            })
+            .orElse(null);
     }
 
     public void deleteReferral(UUID referralId, UUID accountId) {

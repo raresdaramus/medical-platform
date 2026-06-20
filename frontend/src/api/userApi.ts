@@ -4,6 +4,7 @@ import type {
   PatientResponse,
   CreateDoctorRequest,
   DoctorResponse,
+  UpdateDoctorProfileRequest,
   ScheduleEntry,
   CreateScheduleEntry,
   AssignDoctorRequest,
@@ -46,6 +47,11 @@ export const getDoctor = async (doctorId: string): Promise<DoctorResponse> => {
 
 export const getMyDoctor = async (): Promise<DoctorResponse> => {
   const response = await axiosInstance.get<ApiSuccess<DoctorResponse>>('/api/users/doctors/me');
+  return response.data.data;
+};
+
+export const updateMyDoctorProfile = async (data: UpdateDoctorProfileRequest): Promise<DoctorResponse> => {
+  const response = await axiosInstance.put<ApiSuccess<DoctorResponse>>('/api/users/doctors/me', data);
   return response.data.data;
 };
 

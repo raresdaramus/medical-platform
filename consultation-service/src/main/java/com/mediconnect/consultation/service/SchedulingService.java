@@ -76,7 +76,7 @@ public class SchedulingService {
         consultation.setPatientId(patientId);
         consultation.setConsultationType(req.consultationType() != null ? req.consultationType() : "IN_PERSON");
         consultation.setScheduledAt(req.scheduledAt());
-        consultation.setSlotDurationMinutes(req.slotDurationMinutes() != null ? req.slotDurationMinutes() : 30);
+        consultation.setSlotDurationMinutes(resolveSlotDuration(req));
         consultation.setStatus("PENDING");
         consultation.setCreatedAt(LocalDateTime.now());
         consultation = consultationRepository.save(consultation);
@@ -93,15 +93,29 @@ public class SchedulingService {
         return toConsultationResponse(consultation);
     }
 
+    // Authoritative slot duration: read it from the doctor's schedule for the booked
+    // day rather than trusting the client. Falls back to the request value, then 30 min.
+    private int resolveSlotDuration(CreateConsultationRequest req) {
+        int fallback = req.slotDurationMinutes() != null ? req.slotDurationMinutes() : 30;
+        if (req.scheduledAt() == null) return fallback;
+        int dayOfWeek = req.scheduledAt().getDayOfWeek().getValue() % 7; // Sunday=0, Monday=1...
+        return userClient.getDoctorSchedule(req.doctorId()).stream()
+            .filter(s -> s.dayOfWeek() != null && s.dayOfWeek() == dayOfWeek)
+            .map(DoctorScheduleDto::slotDurationMinutes)
+            .filter(java.util.Objects::nonNull)
+            .findFirst()
+            .orElse(fallback);
+    }
+
     public ConsultationResponse toConsultationResponse(Consultation c) {
         return new ConsultationResponse(c.getId(), c.getDoctorId(), c.getPatientId(), null, null, c.getStatus(),
-            c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(), c.getCreatedAt(),
-            c.getNextConsultationId());
+            c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(),
+            c.getSlotDurationMinutes(), c.getCreatedAt(), c.getNextConsultationId());
     }
 
     public ConsultationResponse toConsultationResponse(Consultation c, String patientName, String doctorName) {
         return new ConsultationResponse(c.getId(), c.getDoctorId(), c.getPatientId(), patientName, doctorName, c.getStatus(),
-            c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(), c.getCreatedAt(),
-            c.getNextConsultationId());
+            c.getConsultationType(), c.getScheduledAt(), c.getStartedAt(), c.getCompletedAt(),
+            c.getSlotDurationMinutes(), c.getCreatedAt(), c.getNextConsultationId());
     }
 }

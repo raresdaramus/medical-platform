@@ -32,6 +32,22 @@ public class Doctor {
     @Column(length = 20)
     private String phone;
 
+    @Column(length = 20)
+    private String cui;
+
+    @Column(name = "clinic_address", length = 300)
+    private String clinicAddress;
+
+    @Column(length = 100)
+    private String cas;
+
+    @Column(name = "cnas_contract_number", length = 50)
+    private String cnasContractNumber;
+
+    /** MF (medic de familie), AMB_SPEC (ambulatoriu de specialitate) or OTHER. */
+    @Column(name = "provider_type", length = 20)
+    private String providerType;
+
     @Column(name = "is_accepting_patients")
     private Boolean isAcceptingPatients = true;
 
@@ -56,6 +72,16 @@ public class Doctor {
     public void setClinicName(String clinicName) { this.clinicName = clinicName; }
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+    public String getCui() { return cui; }
+    public void setCui(String cui) { this.cui = cui; }
+    public String getClinicAddress() { return clinicAddress; }
+    public void setClinicAddress(String clinicAddress) { this.clinicAddress = clinicAddress; }
+    public String getCas() { return cas; }
+    public void setCas(String cas) { this.cas = cas; }
+    public String getCnasContractNumber() { return cnasContractNumber; }
+    public void setCnasContractNumber(String cnasContractNumber) { this.cnasContractNumber = cnasContractNumber; }
+    public String getProviderType() { return providerType; }
+    public void setProviderType(String providerType) { this.providerType = providerType; }
     public Boolean getIsAcceptingPatients() { return isAcceptingPatients; }
     public void setIsAcceptingPatients(Boolean isAcceptingPatients) { this.isAcceptingPatients = isAcceptingPatients; }
     public LocalDateTime getCreatedAt() { return createdAt; }

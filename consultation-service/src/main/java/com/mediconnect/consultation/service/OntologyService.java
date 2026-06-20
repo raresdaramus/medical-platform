@@ -58,7 +58,7 @@ public class OntologyService {
     }
 
     public List<MedicationResponse> searchMedications(String term) {
-        return medicationRepository.findByNameContainingIgnoreCase(term).stream()
+        return medicationRepository.findByNameStartingWithIgnoreCaseOrderByNameAsc(term).stream()
             .map(m -> new MedicationResponse(m.getId(), m.getName(), m.getActiveSubstance(), m.getDosageForm(), m.getStandardDosage()))
             .collect(Collectors.toList());
     }

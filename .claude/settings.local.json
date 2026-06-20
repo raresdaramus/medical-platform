@@ -17,7 +17,21 @@
       "Bash(Get-ChildItem -Recurse -Path \"consultation-service/src/main/java\" -File)",
       "Bash(Select-Object FullName)",
       "PowerShell(Get-Content *)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(docker compose *)",
+      "PowerShell(docker-compose *)",
+      "Bash(python -c \"import json;d=json.load\\(open\\('ro.json',encoding='utf-8'\\)\\);print\\(json.dumps\\(d.get\\('intake',{}\\),ensure_ascii=False,indent=1\\)\\)\")",
+      "Bash(python -c \"import json;d=json.load\\(open\\('ro.json',encoding='utf-8'\\)\\);print\\(list\\(d.get\\('symptomName',{}\\).items\\(\\)\\)[:15]\\); print\\('total',len\\(d.get\\('symptomName',{}\\)\\)\\)\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/i18n/en.json','utf8'\\)\\);JSON.parse\\(require\\('fs'\\).readFileSync\\('src/i18n/ro.json','utf8'\\)\\);console.log\\('JSON OK'\\)\")",
+      "Bash(ls consultation-service/mvnw user-service/mvnw)",
+      "Bash(which mvn *)",
+      "Bash(docker version *)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(awk 'NR>=425 && NR<=446' i18n/ro.json)",
+      "Bash(node -e ' *)",
+      "Bash(echo \"TSC DONE exit:$?\")",
+      "Bash(node *)",
+      "Bash(echo \"TSC exit:$?\")"
     ]
   }
 }

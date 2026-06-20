@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { getDoctorAllConsultations } from '../../api/consultationApi';
-import type { ConsultationResponse, ConsultationStatus } from '../../types';
+import type { ConsultationResponse, ConsultationStatus, ConsultationType } from '../../types';
 
 function statusBadge(status: ConsultationStatus, t: (k: string) => string) {
   const map: Record<ConsultationStatus, string> = {
@@ -33,6 +33,7 @@ export default function DoctorConsultationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState<ConsultationStatus | 'ALL'>('ALL');
+  const [filterType, setFilterType] = useState<ConsultationType | 'ALL'>('ALL');
   const [patientSearch, setPatientSearch] = useState('');
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function DoctorConsultationsPage() {
 
   const filtered = consultations
     .filter((c) => filterStatus === 'ALL' || c.status === filterStatus)
+    .filter((c) => filterType === 'ALL' || c.consultationType === filterType)
     .filter((c) => {
       if (!patientSearch.trim()) return true;
       const name = (c.patientName ?? '').toLowerCase();
@@ -78,26 +80,52 @@ export default function DoctorConsultationsPage() {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
-      {/* Filters row */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Patient name search */}
+      {/* Filters row — single row, scrolls horizontally if it overflows */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        {/* Patient name search — kept outside the scroll area so its focus glow isn't clipped */}
         <input
           type="text"
-          className="input-field sm:w-64"
+          className="input-field w-full sm:w-56 shrink-0"
           placeholder={t('consultations.filterByPatient')}
           value={patientSearch}
           onChange={(e) => setPatientSearch(e.target.value)}
         />
 
+        {/* Filter buttons — scroll horizontally if they overflow */}
+        <div className="flex items-center gap-3 overflow-x-auto py-1 min-w-0">
+        {/* Type filter */}
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-sm font-medium text-slate-400 mr-1">{t('consultations.filterByType')}</span>
+          {(['ALL', 'IN_PERSON', 'TELEMEDICINE'] as const).map((typ) => (
+            <button
+              key={typ}
+              onClick={() => setFilterType(typ)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                filterType === typ
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {typ === 'ALL'
+                ? t('consultations.all')
+                : typ === 'IN_PERSON'
+                ? t('consultations.inPerson')
+                : t('consultations.online')}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-6 w-px bg-slate-200 shrink-0" />
+
         {/* Status tabs */}
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 shrink-0">
           {(['ALL', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const).map((s) => {
             const count = s === 'ALL' ? consultations.length : (statusCounts[s] ?? 0);
             return (
               <button
                 key={s}
                 onClick={() => setFilterStatus(s)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                   filterStatus === s
                     ? 'bg-blue-600 text-white'
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -113,6 +141,7 @@ export default function DoctorConsultationsPage() {
             );
           })}
         </div>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -125,7 +154,7 @@ export default function DoctorConsultationsPage() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.patient')}</th>
-                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.scheduled')}</th>
+                <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.date')}</th>
                 <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.type')}</th>
                 <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.duration')}</th>
                 <th className="text-left px-6 py-3 font-medium text-slate-500">{t('consultations.status')}</th>
@@ -148,10 +177,24 @@ export default function DoctorConsultationsPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-slate-600">
-                    {c.scheduledAt
-                      ? new Date(c.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
-                      : <span className="text-slate-400 italic">{t('consultations.async')}</span>
-                    }
+                    {c.scheduledAt ? (
+                      new Date(c.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+                    ) : (() => {
+                      // Online consultations have no scheduled slot: show when it was actually
+                      // performed (completed → started), falling back to the request date.
+                      const performedAt = c.completedAt ?? c.startedAt;
+                      return performedAt ? (
+                        <span>
+                          {new Date(performedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                          <span className="block text-xs text-slate-400 italic">{t('consultations.performed')}</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">
+                          {new Date(c.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                          <span className="block text-xs text-slate-400 italic">{t('consultations.async')}</span>
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 text-slate-600 capitalize">
                     {c.consultationType.replace('_', ' ').toLowerCase()}
