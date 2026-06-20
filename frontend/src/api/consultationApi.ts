@@ -228,6 +228,13 @@ export const getDocuments = async (consultationId: string): Promise<DocumentResp
   return response.data.data;
 };
 
+export const getPatientDocuments = async (patientId: string): Promise<DocumentResponse[]> => {
+  const response = await axiosInstance.get<ApiSuccess<DocumentResponse[]>>(
+    `/api/consultations/patients/${patientId}/documents`
+  );
+  return response.data.data;
+};
+
 export const uploadDocument = async (consultationId: string, file: File): Promise<DocumentResponse> => {
   const form = new FormData();
   form.append('file', file);

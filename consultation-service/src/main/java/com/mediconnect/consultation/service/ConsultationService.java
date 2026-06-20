@@ -455,10 +455,12 @@ public class ConsultationService {
         return schedulingService.toConsultationResponse(consultationRepository.save(c));
     }
 
-    @Transactional(readOnly = true)
-    public List<MedicalRecordResponse> getMedicalRecord(UUID patientId, UUID requesterId, String role) {
-        // patientId is the patient's accountId. Only the patient themselves, or a
-        // doctor who is their family doctor / holds an active permission, may view it.
+    /**
+     * Gate for patient-scoped clinical data (record, documents). patientId is the
+     * patient's accountId; only the patient themselves, or a doctor who is their
+     * family doctor / holds an active permission, may view it.
+     */
+    private void assertCanViewPatientData(UUID patientId, UUID requesterId, String role) {
         if ("PATIENT".equals(role)) {
             if (!patientId.equals(requesterId)) {
                 throw new UnauthorizedException("Not authorized to view this medical record");
@@ -470,6 +472,28 @@ public class ConsultationService {
         } else {
             throw new UnauthorizedException("Not authorized to view this medical record");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> getPatientDocuments(UUID patientId, UUID requesterId, String role) {
+        assertCanViewPatientData(patientId, requesterId, role);
+        List<DocumentResponse> docs = new java.util.ArrayList<>();
+        for (Consultation c : consultationRepository.findByPatientId(patientId)) {
+            documentRepository.findByConsultationIdOrderByUploadedAtAsc(c.getId()).forEach(d ->
+                docs.add(new DocumentResponse(d.getId(), d.getConsultationId(), d.getUploadedBy(),
+                    d.getUploaderRole(), d.getFileName(), d.getFileSize(), d.getUploadedAt())));
+        }
+        docs.sort((a, b) -> {
+            if (b.uploadedAt() == null) return -1;
+            if (a.uploadedAt() == null) return 1;
+            return b.uploadedAt().compareTo(a.uploadedAt());
+        });
+        return docs;
+    }
+
+    @Transactional(readOnly = true)
+    public List<MedicalRecordResponse> getMedicalRecord(UUID patientId, UUID requesterId, String role) {
+        assertCanViewPatientData(patientId, requesterId, role);
 
         List<Consultation> consultations = consultationRepository.findByPatientId(patientId);
         List<MedicalRecordResponse> result = new java.util.ArrayList<>();
@@ -488,7 +512,7 @@ public class ConsultationService {
             );
 
             diagnosisRepository.findByConsultationId(c.getId()).forEach(d -> {
-                String summary = d.getCustomDiagnosis() != null ? d.getCustomDiagnosis() : d.getIcd10Code();
+                String summary = buildDiagnosisSummary(d);
                 LocalDateTime addedAt = d.getDiagnosisDate() != null ? d.getDiagnosisDate().atStartOfDay() : c.getScheduledAt();
                 result.add(new MedicalRecordResponse(d.getId(), patientId, c.getId(), "DIAGNOSIS",
                     addedAt, summary, finalDoctorName, c.getScheduledAt(), c.getStatus()));
@@ -496,7 +520,7 @@ public class ConsultationService {
 
             prescriptionRepository.findByConsultationId(c.getId()).forEach(p ->
                 result.add(new MedicalRecordResponse(p.getId(), patientId, c.getId(), "PRESCRIPTION",
-                    p.getIssuedAt(), p.getCustomInstructions(), finalDoctorName, c.getScheduledAt(), c.getStatus()))
+                    p.getIssuedAt(), buildPrescriptionSummary(p), finalDoctorName, c.getScheduledAt(), c.getStatus()))
             );
 
             referralRepository.findByConsultationId(c.getId()).forEach(r ->
@@ -515,6 +539,47 @@ public class ConsultationService {
 
     private double parseConfidence(String s) {
         try { return s != null ? Double.parseDouble(s) : 0.0; } catch (Exception e) { return 0.0; }
+    }
+
+    /** Diagnosis summary: disease/custom name first, then the ICD-10 code in parentheses. */
+    private String buildDiagnosisSummary(Diagnosis d) {
+        String code = (d.getIcd10Code() != null && !d.getIcd10Code().isBlank()) ? d.getIcd10Code() : null;
+        String name = null;
+        if (d.getCustomDiagnosis() != null && !d.getCustomDiagnosis().isBlank()) {
+            name = d.getCustomDiagnosis();
+        } else if (d.getDiseaseId() != null) {
+            name = diseaseRepository.findById(d.getDiseaseId())
+                .map(dis -> (dis.getNameRo() != null && !dis.getNameRo().isBlank()) ? dis.getNameRo() : dis.getName())
+                .orElse(null);
+        }
+        if (name != null && code != null) return name + " (" + code + ")";
+        if (name != null) return name;
+        return code;
+    }
+
+    /** Prescription summary: the prescribed medications with dosage/frequency/duration, plus any instructions. */
+    private String buildPrescriptionSummary(Prescription p) {
+        String meds = prescriptionItemRepository.findByPrescriptionId(p.getId()).stream()
+            .map(this::formatPrescriptionItem)
+            .filter(s -> s != null && !s.isBlank())
+            .collect(Collectors.joining("; "));
+        String instructions = (p.getCustomInstructions() != null && !p.getCustomInstructions().isBlank())
+            ? p.getCustomInstructions() : null;
+        if (!meds.isBlank() && instructions != null) return meds + " — " + instructions;
+        if (!meds.isBlank()) return meds;
+        return instructions;
+    }
+
+    private String formatPrescriptionItem(PrescriptionItem item) {
+        StringBuilder sb = new StringBuilder();
+        if (item.getMedicationName() != null) sb.append(item.getMedicationName());
+        if (item.getDosage() != null && !item.getDosage().isBlank()) sb.append(' ').append(item.getDosage());
+        java.util.List<String> extras = new java.util.ArrayList<>();
+        if (item.getFrequency() != null && !item.getFrequency().isBlank()) extras.add(item.getFrequency());
+        if (item.getDurationDays() != null) extras.add(item.getDurationDays() + " zile");
+        if (item.getQuantity() != null) extras.add(item.getQuantity() + " buc");
+        if (!extras.isEmpty()) sb.append(" (").append(String.join(", ", extras)).append(')');
+        return sb.toString().trim();
     }
 
     private UUID resolveDoctorProfileId(UUID accountId) {

@@ -171,6 +171,14 @@ public class ConsultationController {
         return ResponseEntity.ok(ApiResponse.ok(consultationService.getMedicalRecord(patientId, token.accountId(), token.role())));
     }
 
+    @GetMapping("/patients/{patientId}/documents")
+    public ResponseEntity<ApiResponse<List<DocumentResponse>>> getPatientDocuments(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID patientId) {
+        ValidateTokenResponse token = authClient.validateToken(auth);
+        return ResponseEntity.ok(ApiResponse.ok(consultationService.getPatientDocuments(patientId, token.accountId(), token.role())));
+    }
+
     @DeleteMapping("/diagnosis/{diagnosisId}")
     public ResponseEntity<ApiResponse<Void>> deleteDiagnosis(
             @RequestHeader("Authorization") String auth,
