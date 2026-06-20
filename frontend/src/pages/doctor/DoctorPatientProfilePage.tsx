@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { getPatient } from '../../api/userApi';
-import { getDoctorPatientConsultations } from '../../api/consultationApi';
-import type { PatientResponse, ConsultationResponse, ConsultationStatus } from '../../types';
+import { getDoctorPatientConsultations, getPatientMedicalRecord } from '../../api/consultationApi';
+import type { PatientResponse, ConsultationResponse, ConsultationStatus, MedicalRecordResponse } from '../../types';
 
 function statusBadge(status: ConsultationStatus, t: (k: string) => string) {
   const map: Record<ConsultationStatus, string> = {
@@ -17,6 +17,20 @@ function statusBadge(status: ConsultationStatus, t: (k: string) => string) {
   return <span className={map[status]}>{t('status.' + status)}</span>;
 }
 
+const entryTypeBadge: Record<string, string> = {
+  INTAKE: 'badge-yellow',
+  DIAGNOSIS: 'badge-blue',
+  PRESCRIPTION: 'badge-green',
+  REFERRAL: 'badge-slate',
+};
+
+const entryTypeIcon: Record<string, string> = {
+  INTAKE: '📋',
+  DIAGNOSIS: '🔬',
+  PRESCRIPTION: '💊',
+  REFERRAL: '📨',
+};
+
 export default function DoctorPatientProfilePage() {
   const { patientId } = useParams<{ patientId: string }>();
   const { profileId } = useAuthStore();
@@ -25,18 +39,36 @@ export default function DoctorPatientProfilePage() {
 
   const [patient, setPatient] = useState<PatientResponse | null>(null);
   const [consultations, setConsultations] = useState<ConsultationResponse[]>([]);
+  const [records, setRecords] = useState<MedicalRecordResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const entryTypeLabels: Record<string, string> = {
+    INTAKE: t('medicalRecord.intake'),
+    DIAGNOSIS: t('medicalRecord.diagnosis'),
+    PRESCRIPTION: t('medicalRecord.prescription'),
+    REFERRAL: t('medicalRecord.referral'),
+  };
+
   useEffect(() => {
     if (!patientId || !profileId) return;
-    Promise.all([
-      getPatient(patientId),
-      getDoctorPatientConsultations(profileId, patientId),
-    ])
-      .then(([p, c]) => {
+    setLoading(true);
+    getPatient(patientId)
+      .then((p) => {
         setPatient(p);
-        setConsultations(c.sort((a, b) => (b.scheduledAt ?? '').localeCompare(a.scheduledAt ?? '')));
+        // The medical record is keyed by the patient's accountId (same source the patient sees).
+        return Promise.allSettled([
+          getDoctorPatientConsultations(profileId, patientId),
+          getPatientMedicalRecord(p.accountId),
+        ]);
+      })
+      .then(([c, r]) => {
+        if (c.status === 'fulfilled') {
+          setConsultations(c.value.sort((a, b) => (b.scheduledAt ?? '').localeCompare(a.scheduledAt ?? '')));
+        }
+        if (r.status === 'fulfilled') {
+          setRecords(r.value.slice().sort((a, b) => (b.addedAt ?? '').localeCompare(a.addedAt ?? '')));
+        }
       })
       .catch(() => setError(t('patients.failedLoadPatient')))
       .finally(() => setLoading(false));
@@ -150,6 +182,56 @@ export default function DoctorPatientProfilePage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* Medical record — same view the patient sees */}
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900 mb-3">{t('patients.medicalRecord')}</h2>
+
+        {records.length === 0 ? (
+          <div className="card card-body text-center py-10">
+            <p className="text-slate-500">{t('patients.noMedicalRecord')}</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {records.map((record) => (
+              <div key={record.id} className="card">
+                <div className="card-body flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm">{entryTypeIcon[record.entryType]}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={entryTypeBadge[record.entryType] ?? 'badge-slate'}>
+                          {entryTypeLabels[record.entryType] ?? record.entryType}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {new Date(record.addedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                        </span>
+                        {record.consultationStatus && (
+                          <span className="text-xs text-slate-400">· {t('status.' + record.consultationStatus)}</span>
+                        )}
+                      </div>
+                      {record.doctorName && (
+                        <p className="text-sm text-slate-600 mt-1">Dr. {record.doctorName}</p>
+                      )}
+                      {record.summary && (
+                        <p className="text-sm text-slate-700 mt-1 font-medium">{record.summary}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/doctor/consultations/${record.consultationId}`)}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium flex-shrink-0"
+                  >
+                    {t('medicalRecord.viewConsultation')}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
