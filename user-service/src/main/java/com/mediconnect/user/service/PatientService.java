@@ -111,7 +111,19 @@ public class PatientService {
     @Transactional(readOnly = true)
     public List<PermissionResponse> getPermissions(UUID patientId) {
         return permissionRepository.findByPatientIdAndIsActiveTrue(patientId)
-            .stream().map(userMapper::toPermissionResponse).collect(Collectors.toList());
+            .stream().map(this::toPermissionResponse).collect(Collectors.toList());
+    }
+
+    /** Maps a permission to its response, resolving the grantee doctor's display name. */
+    private PermissionResponse toPermissionResponse(DataAccessPermission p) {
+        String granteeName = null;
+        if ("DOCTOR".equals(p.getGranteeType())) {
+            granteeName = doctorRepository.findById(p.getGranteeId())
+                .map(d -> d.getFirstName() + " " + d.getLastName())
+                .orElse(null);
+        }
+        return new PermissionResponse(p.getId(), p.getPatientId(), p.getGranteeId(), granteeName,
+            p.getGranteeType(), p.getPermissionType(), p.getGrantedAt(), p.getExpiresAt(), p.getIsActive());
     }
 
     public PermissionResponse grantPermission(UUID patientId, UUID accountId, PermissionRequest req) {
@@ -128,7 +140,7 @@ public class PatientService {
         permission.setGrantedAt(LocalDateTime.now());
         permission.setExpiresAt(req.expiresAt());
         permission.setIsActive(true);
-        return userMapper.toPermissionResponse(permissionRepository.save(permission));
+        return toPermissionResponse(permissionRepository.save(permission));
     }
 
     public void revokePermission(UUID patientId, UUID permissionId, UUID accountId) {

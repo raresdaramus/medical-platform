@@ -11,5 +11,4 @@ public interface UserMapper {
     DoctorResponse toDoctorResponse(Doctor doctor);
     ScheduleEntryResponse toScheduleResponse(DoctorSchedule schedule);
     AssignmentResponse toAssignmentResponse(PatientDoctorAssignment assignment);
-    PermissionResponse toPermissionResponse(DataAccessPermission permission);
 }

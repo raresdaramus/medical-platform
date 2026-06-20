@@ -19,8 +19,7 @@ export default function DataPermissionsPage() {
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorResponse | null>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Form state
-  const [permissionType, setPermissionType] = useState<PermissionType>('VIEW_RECORDS');
+  // Form state — all granted permissions are FULL_ACCESS (the only level offered).
   const [expiresAt, setExpiresAt] = useState('');
   const [granting, setGranting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -70,13 +69,12 @@ export default function DataPermissionsPage() {
       await createPermission(profileId, {
         granteeId: selectedDoctor.id,
         granteeType: 'DOCTOR',
-        permissionType,
+        permissionType: 'FULL_ACCESS',
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
       });
       setSelectedDoctor(null);
       setDoctorSearch('');
       setExpiresAt('');
-      setPermissionType('VIEW_RECORDS');
       await loadPermissions();
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: { message?: string } } } };
@@ -178,29 +176,20 @@ export default function DataPermissionsPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label">{t('permissions.permissionLevel')}</label>
-                <select
-                  className="input-field"
-                  value={permissionType}
-                  onChange={(e) => setPermissionType(e.target.value as PermissionType)}
-                >
-                  <option value="VIEW_RECORDS">{t('permissions.viewRecords')}</option>
-                  <option value="EDIT_RECORDS">{t('permissions.editRecords')}</option>
-                  <option value="FULL_ACCESS">{t('permissions.fullAccess')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">{t('permissions.expiresAt')}</label>
-                <input
-                  type="date"
-                  className="input-field"
-                  value={expiresAt}
-                  onChange={(e) => setExpiresAt(e.target.value)}
-                  min={new Date().toISOString().slice(0, 10)}
-                />
-              </div>
+            <div>
+              <label className="label">{t('permissions.expiresAt')}</label>
+              <input
+                type="date"
+                className="input-field"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+              />
+            </div>
+
+            {/* Access explanation */}
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
+              {t('permissions.accessNote')}
             </div>
 
             <div className="flex justify-end">
@@ -228,9 +217,8 @@ export default function DataPermissionsPage() {
               <div key={p.id} className="px-6 py-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="font-medium text-slate-800 text-sm truncate">
-                    {p.granteeName ?? `Doctor ${p.granteeId.slice(0, 8)}…`}
+                    {p.granteeName ? `Dr. ${p.granteeName}` : `Dr. ${p.granteeId.slice(0, 8)}…`}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5 font-mono truncate">{p.granteeId}</div>
                   <div className="flex items-center gap-2 mt-1.5">
                     <span className="badge-blue text-xs">
                       {permissionTypeLabels[p.permissionType] ?? p.permissionType}

@@ -820,6 +820,7 @@
     "searchDoctor": "Caută medic după nume…",
     "doctorRequired": "Vă rugăm selectați un medic.",
     "permissionLevel": "Nivel de permisiune",
+    "accessNote": "Prin acordarea accesului, acest medic va putea vizualiza toate consultațiile dumneavoastră și întreaga fișă medicală.",
     "expiresAt": "Expiră la (opțional)",
     "granting": "Se acordă…",
     "grant": "Acordați acces",

@@ -820,6 +820,7 @@
     "searchDoctor": "Search doctor by name…",
     "doctorRequired": "Please select a doctor.",
     "permissionLevel": "Permission level",
+    "accessNote": "By granting access, this doctor will be able to view all your consultations and your entire medical record.",
     "expiresAt": "Expires at (optional)",
     "granting": "Granting…",
     "grant": "Grant access",
