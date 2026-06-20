@@ -31,7 +31,8 @@
       "Bash(node -e ' *)",
       "Bash(echo \"TSC DONE exit:$?\")",
       "Bash(node *)",
-      "Bash(echo \"TSC exit:$?\")"
+      "Bash(echo \"TSC exit:$?\")",
+      "Bash(git add *)"
     ]
   }
 }

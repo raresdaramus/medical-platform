@@ -457,6 +457,20 @@ public class ConsultationService {
 
     @Transactional(readOnly = true)
     public List<MedicalRecordResponse> getMedicalRecord(UUID patientId, UUID requesterId, String role) {
+        // patientId is the patient's accountId. Only the patient themselves, or a
+        // doctor who is their family doctor / holds an active permission, may view it.
+        if ("PATIENT".equals(role)) {
+            if (!patientId.equals(requesterId)) {
+                throw new UnauthorizedException("Not authorized to view this medical record");
+            }
+        } else if ("DOCTOR".equals(role)) {
+            if (!userClient.canDoctorAccessPatient(requesterId, patientId)) {
+                throw new UnauthorizedException("Not authorized to view this patient's medical record");
+            }
+        } else {
+            throw new UnauthorizedException("Not authorized to view this medical record");
+        }
+
         List<Consultation> consultations = consultationRepository.findByPatientId(patientId);
         List<MedicalRecordResponse> result = new java.util.ArrayList<>();
 

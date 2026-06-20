@@ -3,6 +3,7 @@ package com.mediconnect.user.service;
 import com.mediconnect.user.dto.*;
 import com.mediconnect.user.entity.Doctor;
 import com.mediconnect.user.entity.DoctorSchedule;
+import com.mediconnect.user.entity.Patient;
 import com.mediconnect.user.exception.ResourceNotFoundException;
 import com.mediconnect.user.exception.UnauthorizedException;
 import com.mediconnect.user.mapper.UserMapper;
@@ -107,6 +108,30 @@ public class DoctorService {
             .filter(p -> p != null)
             .map(userMapper::toPatientResponse)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Whether a doctor may view a patient's medical record: either the patient's
+     * active family doctor, or the holder of an active (non-expired) data-access
+     * permission for that patient. Both parameters are account ids.
+     */
+    @Transactional(readOnly = true)
+    public boolean canDoctorAccessPatient(UUID doctorAccountId, UUID patientAccountId) {
+        Doctor doctor = doctorRepository.findByAccountId(doctorAccountId).orElse(null);
+        if (doctor == null) return false;
+        Patient patient = patientRepository.findByAccountId(patientAccountId).orElse(null);
+        if (patient == null) return false;
+
+        boolean isFamilyDoctor = assignmentRepository
+            .findByPatientIdAndDoctorId(patient.getId(), doctor.getId())
+            .map(a -> Boolean.TRUE.equals(a.getIsActive()))
+            .orElse(false);
+        if (isFamilyDoctor) return true;
+
+        LocalDateTime now = LocalDateTime.now();
+        return permissionRepository.findByGranteeIdAndIsActiveTrue(doctor.getId()).stream()
+            .anyMatch(p -> p.getPatientId().equals(patient.getId())
+                && (p.getExpiresAt() == null || p.getExpiresAt().isAfter(now)));
     }
 
     @Transactional(readOnly = true)

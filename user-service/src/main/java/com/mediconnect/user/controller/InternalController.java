@@ -45,4 +45,12 @@ public class InternalController {
     public ResponseEntity<ApiResponse<List<ScheduleEntryResponse>>> getSchedule(@PathVariable UUID doctorId) {
         return ResponseEntity.ok(ApiResponse.ok(doctorService.getSchedule(doctorId)));
     }
+
+    @GetMapping("/access/doctor/{doctorAccountId}/patient/{patientAccountId}")
+    public ResponseEntity<ApiResponse<Boolean>> canDoctorAccessPatient(
+            @PathVariable UUID doctorAccountId,
+            @PathVariable UUID patientAccountId) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            doctorService.canDoctorAccessPatient(doctorAccountId, patientAccountId)));
+    }
 }

@@ -171,6 +171,20 @@ public class UserClient {
     }
 
     @Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))
+    public boolean canDoctorAccessPatient(UUID doctorAccountId, UUID patientAccountId) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restClient.get()
+                    .uri("/api/users/internal/access/doctor/" + doctorAccountId + "/patient/" + patientAccountId)
+                    .retrieve()
+                    .body(Map.class);
+            return Boolean.TRUE.equals(response.get("data"));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to check doctor access: " + e.getMessage(), e);
+        }
+    }
+
+    @Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))
     public List<DoctorScheduleDto> getDoctorSchedule(UUID doctorId) {
         try {
             @SuppressWarnings("unchecked")
